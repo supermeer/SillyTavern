@@ -217,6 +217,19 @@ app.use(express.static(path.join(serverDirectory, 'public'), {}));
 // Public API
 app.use('/api/users', usersPublicRouter);
 
+// Public API: serve latest openai request messages (no login required)
+app.get('/api/openai-messages', async (request, response) => {
+    const fs = await import('fs/promises');
+    try {
+        const content = await fs.readFile('openai-request-messages.json', 'utf8');
+        const data = JSON.parse(content);
+        // Return the raw file content so the client can mirror the on-disk format exactly
+        response.json({ success: true, data, raw: content });
+    } catch {
+        response.json({ success: false, data: [], raw: '', message: 'No messages yet' });
+    }
+});
+
 // Everything below this line requires authentication
 app.use(requireLoginMiddleware);
 app.post('/api/ping', (request, response) => {
