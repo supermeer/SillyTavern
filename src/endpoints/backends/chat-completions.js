@@ -1,15 +1,14 @@
-import process from "node:process";
-import util from "node:util";
-import fs from "node:fs";
-import express from "express";
-import fetch from "node-fetch";
+import process from 'node:process';
+import util from 'node:util';
+import express from 'express';
+import fetch from 'node-fetch';
 
 import {
     AIMLAPI_HEADERS,
     CHAT_COMPLETION_SOURCES,
     GEMINI_SAFETY,
     OPENROUTER_HEADERS,
-} from "../../constants.js";
+} from '../../constants.js';
 import {
     forwardFetchResponse,
     getConfigValue,
@@ -20,7 +19,7 @@ import {
     color,
     trimTrailingSlash,
     flattenSchema,
-} from "../../util.js";
+} from '../../util.js';
 import {
     convertClaudeMessages,
     convertGooglePrompt,
@@ -37,9 +36,9 @@ import {
     postProcessPrompt,
     PROMPT_PROCESSING_TYPE,
     addAssistantPrefix,
-} from "../../prompt-converters.js";
+} from '../../prompt-converters.js';
 
-import { readSecret, SECRET_KEYS } from "../secrets.js";
+import { readSecret, SECRET_KEYS } from '../secrets.js';
 import {
     getTokenizerModel,
     getSentencepiceTokenizer,
@@ -48,27 +47,27 @@ import {
     TEXT_COMPLETION_MODELS,
     webTokenizers,
     getWebTokenizer,
-} from "../tokenizers.js";
-import { getVertexAIAuth, getProjectIdFromServiceAccount } from "../google.js";
+} from '../tokenizers.js';
+import { getVertexAIAuth, getProjectIdFromServiceAccount } from '../google.js';
 
-const API_OPENAI = "https://api.openai.com/v1";
-const API_CLAUDE = "https://api.anthropic.com/v1";
-const API_MISTRAL = "https://api.mistral.ai/v1";
-const API_COHERE_V1 = "https://api.cohere.ai/v1";
-const API_COHERE_V2 = "https://api.cohere.ai/v2";
-const API_PERPLEXITY = "https://api.perplexity.ai";
-const API_GROQ = "https://api.groq.com/openai/v1";
-const API_MAKERSUITE = "https://generativelanguage.googleapis.com";
-const API_VERTEX_AI = "https://us-central1-aiplatform.googleapis.com";
-const API_AI21 = "https://api.ai21.com/studio/v1";
-const API_NANOGPT = "https://nano-gpt.com/api/v1";
-const API_DEEPSEEK = "https://api.deepseek.com/beta";
-const API_XAI = "https://api.x.ai/v1";
-const API_AIMLAPI = "https://api.aimlapi.com/v1";
-const API_POLLINATIONS = "https://text.pollinations.ai/openai";
-const API_MOONSHOT = "https://api.moonshot.ai/v1";
-const API_FIREWORKS = "https://api.fireworks.ai/inference/v1";
-const API_COMETAPI = "https://api.cometapi.com/v1";
+const API_OPENAI = 'https://api.openai.com/v1';
+const API_CLAUDE = 'https://api.anthropic.com/v1';
+const API_MISTRAL = 'https://api.mistral.ai/v1';
+const API_COHERE_V1 = 'https://api.cohere.ai/v1';
+const API_COHERE_V2 = 'https://api.cohere.ai/v2';
+const API_PERPLEXITY = 'https://api.perplexity.ai';
+const API_GROQ = 'https://api.groq.com/openai/v1';
+const API_MAKERSUITE = 'https://generativelanguage.googleapis.com';
+const API_VERTEX_AI = 'https://us-central1-aiplatform.googleapis.com';
+const API_AI21 = 'https://api.ai21.com/studio/v1';
+const API_NANOGPT = 'https://nano-gpt.com/api/v1';
+const API_DEEPSEEK = 'https://api.deepseek.com/beta';
+const API_XAI = 'https://api.x.ai/v1';
+const API_AIMLAPI = 'https://api.aimlapi.com/v1';
+const API_POLLINATIONS = 'https://text.pollinations.ai/openai';
+const API_MOONSHOT = 'https://api.moonshot.ai/v1';
+const API_FIREWORKS = 'https://api.fireworks.ai/inference/v1';
+const API_COMETAPI = 'https://api.cometapi.com/v1';
 
 /**
  * Gets OpenRouter transforms based on the request.
@@ -77,11 +76,11 @@ const API_COMETAPI = "https://api.cometapi.com/v1";
  */
 function getOpenRouterTransforms(request) {
     switch (request.body.middleout) {
-        case "on":
-            return ["middle-out"];
-        case "off":
+        case 'on':
+            return ['middle-out'];
+        case 'off':
             return [];
-        case "auto":
+        case 'auto':
             return undefined;
     }
 }
@@ -95,7 +94,7 @@ function getOpenRouterPlugins(request) {
     const plugins = [];
 
     if (request.body.enable_web_search) {
-        plugins.push({ id: "web" });
+        plugins.push({ 'id': 'web' });
     }
 
     return plugins;
@@ -108,16 +107,12 @@ function getOpenRouterPlugins(request) {
  * @param {object} jsonSchema JSON schema object
  */
 function setJsonObjectFormat(bodyParams, messages, jsonSchema) {
-    bodyParams["response_format"] = {
-        type: "json_object",
+    bodyParams['response_format'] = {
+        type: 'json_object',
     };
     const message = {
-        role: "user",
-        content: `JSON schema for the response:\n${JSON.stringify(
-            jsonSchema.value,
-            null,
-            4
-        )}`,
+        role: 'user',
+        content: `JSON schema for the response:\n${JSON.stringify(jsonSchema.value, null, 4)}`,
     };
     messages.push(message);
 }
@@ -129,16 +124,10 @@ function setJsonObjectFormat(bodyParams, messages, jsonSchema) {
  */
 async function sendClaudeRequest(request, response) {
     const apiUrl = new URL(request.body.reverse_proxy || API_CLAUDE).toString();
-    const apiKey = request.body.reverse_proxy
-        ? request.body.proxy_password
-        : readSecret(request.user.directories, SECRET_KEYS.CLAUDE);
-    const divider = "-".repeat(process.stdout.columns);
-    const enableSystemPromptCache = getConfigValue(
-        "claude.enableSystemPromptCache",
-        false,
-        "boolean"
-    );
-    let cachingAtDepth = getConfigValue("claude.cachingAtDepth", -1, "number");
+    const apiKey = request.body.reverse_proxy ? request.body.proxy_password : readSecret(request.user.directories, SECRET_KEYS.CLAUDE);
+    const divider = '-'.repeat(process.stdout.columns);
+    const enableSystemPromptCache = getConfigValue('claude.enableSystemPromptCache', false, 'boolean');
+    let cachingAtDepth = getConfigValue('claude.cachingAtDepth', -1, 'number');
     // Disabled if not an integer or negative
     if (!Number.isInteger(cachingAtDepth) || cachingAtDepth < 0) {
         cachingAtDepth = -1;
@@ -151,32 +140,19 @@ async function sendClaudeRequest(request, response) {
 
     try {
         const controller = new AbortController();
-        request.socket.removeAllListeners("close");
-        request.socket.on("close", function () {
+        request.socket.removeAllListeners('close');
+        request.socket.on('close', function () {
             controller.abort();
         });
         const additionalHeaders = {};
-        const betaHeaders = ["output-128k-2025-02-19"];
-        const useTools =
-            Array.isArray(request.body.tools) && request.body.tools.length > 0;
+        const betaHeaders = ['output-128k-2025-02-19'];
+        const useTools = Array.isArray(request.body.tools) && request.body.tools.length > 0;
         const useSystemPrompt = Boolean(request.body.claude_use_sysprompt);
-        const convertedPrompt = convertClaudeMessages(
-            request.body.messages,
-            request.body.assistant_prefill,
-            useSystemPrompt,
-            useTools,
-            getPromptNames(request)
-        );
-        const useThinking = /^claude-(3-7|opus-4|sonnet-4)/.test(
-            request.body.model
-        );
-        const useWebSearch =
-            /^claude-(3-5|3-7|opus-4|sonnet-4)/.test(request.body.model) &&
-            Boolean(request.body.enable_web_search);
+        const convertedPrompt = convertClaudeMessages(request.body.messages, request.body.assistant_prefill, useSystemPrompt, useTools, getPromptNames(request));
+        const useThinking = /^claude-(3-7|opus-4|sonnet-4)/.test(request.body.model);
+        const useWebSearch = /^claude-(3-5|3-7|opus-4|sonnet-4)/.test(request.body.model) && Boolean(request.body.enable_web_search);
         const isOpus41 = /^claude-opus-4-1/.test(request.body.model);
-        const cacheTTL = getConfigValue("claude.extendedTTL", false, "boolean")
-            ? "1h"
-            : "5m";
+        const cacheTTL = getConfigValue('claude.extendedTTL', false, 'boolean') ? '1h' : '5m';
         let fixThinkingPrefill = false;
         // Add custom stop sequences
         const stopSequences = [];
@@ -196,14 +172,8 @@ async function sendClaudeRequest(request, response) {
             stream: request.body.stream,
         };
         if (useSystemPrompt) {
-            if (
-                enableSystemPromptCache &&
-                Array.isArray(convertedPrompt.systemPrompt) &&
-                convertedPrompt.systemPrompt.length
-            ) {
-                convertedPrompt.systemPrompt[
-                    convertedPrompt.systemPrompt.length - 1
-                ]["cache_control"] = { type: "ephemeral", ttl: cacheTTL };
+            if (enableSystemPromptCache && Array.isArray(convertedPrompt.systemPrompt) && convertedPrompt.systemPrompt.length) {
+                convertedPrompt.systemPrompt[convertedPrompt.systemPrompt.length - 1]['cache_control'] = { type: 'ephemeral', ttl: cacheTTL };
             }
 
             requestBody.system = convertedPrompt.systemPrompt;
@@ -211,24 +181,15 @@ async function sendClaudeRequest(request, response) {
             delete requestBody.system;
         }
         if (useTools) {
-            betaHeaders.push("tools-2024-05-16");
+            betaHeaders.push('tools-2024-05-16');
             requestBody.tool_choice = { type: request.body.tool_choice };
             requestBody.tools = request.body.tools
-                .filter((tool) => tool.type === "function")
-                .map((tool) => tool.function)
-                .map((fn) => ({
-                    name: fn.name,
-                    description: fn.description,
-                    input_schema: flattenSchema(
-                        fn.parameters,
-                        request.body.chat_completion_source
-                    ),
-                }));
+                .filter(tool => tool.type === 'function')
+                .map(tool => tool.function)
+                .map(fn => ({ name: fn.name, description: fn.description, input_schema: flattenSchema(fn.parameters, request.body.chat_completion_source) }));
 
             if (enableSystemPromptCache && requestBody.tools.length) {
-                requestBody.tools[requestBody.tools.length - 1][
-                    "cache_control"
-                ] = { type: "ephemeral", ttl: cacheTTL };
+                requestBody.tools[requestBody.tools.length - 1]['cache_control'] = { type: 'ephemeral', ttl: cacheTTL };
             }
         }
 
@@ -236,45 +197,31 @@ async function sendClaudeRequest(request, response) {
         if (request.body.json_schema) {
             const jsonTool = {
                 name: request.body.json_schema.name,
-                description:
-                    request.body.json_schema.description ||
-                    "Well-formed JSON object",
+                description: request.body.json_schema.description || 'Well-formed JSON object',
                 input_schema: request.body.json_schema.value,
             };
             requestBody.tools = [...(requestBody.tools || []), jsonTool];
-            requestBody.tool_choice = {
-                type: "tool",
-                name: request.body.json_schema.name,
-            };
+            requestBody.tool_choice = { type: 'tool', name: request.body.json_schema.name };
         }
 
         if (useWebSearch) {
-            const webSearchTool = [
-                {
-                    type: "web_search_20250305",
-                    name: "web_search",
-                },
-            ];
-            requestBody.tools = [
-                ...webSearchTool,
-                ...(requestBody.tools || []),
-            ];
+            const webSearchTool = [{
+                'type': 'web_search_20250305',
+                'name': 'web_search',
+            }];
+            requestBody.tools = [...webSearchTool, ...(requestBody.tools || [])];
         }
 
         if (cachingAtDepth !== -1) {
-            cachingAtDepthForClaude(
-                convertedPrompt.messages,
-                cachingAtDepth,
-                cacheTTL
-            );
+            cachingAtDepthForClaude(convertedPrompt.messages, cachingAtDepth, cacheTTL);
         }
 
         if (enableSystemPromptCache || cachingAtDepth !== -1) {
-            betaHeaders.push("prompt-caching-2024-07-31");
-            betaHeaders.push("extended-cache-ttl-2025-04-11");
+            betaHeaders.push('prompt-caching-2024-07-31');
+            betaHeaders.push('extended-cache-ttl-2025-04-11');
         }
 
-        if (isOpus41) {
+        if (isOpus41){
             if (requestBody.top_p < 1) {
                 delete requestBody.temperature;
             } else {
@@ -283,11 +230,7 @@ async function sendClaudeRequest(request, response) {
         }
 
         const reasoningEffort = request.body.reasoning_effort;
-        const budgetTokens = calculateClaudeBudgetTokens(
-            requestBody.max_tokens,
-            reasoningEffort,
-            requestBody.stream
-        );
+        const budgetTokens = calculateClaudeBudgetTokens(requestBody.max_tokens, reasoningEffort, requestBody.stream);
 
         if (useThinking && Number.isInteger(budgetTokens)) {
             // No prefill when thinking
@@ -295,18 +238,12 @@ async function sendClaudeRequest(request, response) {
             const minThinkTokens = 1024;
             if (requestBody.max_tokens <= minThinkTokens) {
                 const newValue = requestBody.max_tokens + minThinkTokens;
-                console.warn(
-                    color.yellow(
-                        `Claude thinking requires a minimum of ${minThinkTokens} response tokens.`
-                    )
-                );
-                console.info(
-                    color.blue(`Increasing response length to ${newValue}.`)
-                );
+                console.warn(color.yellow(`Claude thinking requires a minimum of ${minThinkTokens} response tokens.`));
+                console.info(color.blue(`Increasing response length to ${newValue}.`));
                 requestBody.max_tokens = newValue;
             }
             requestBody.thinking = {
-                type: "enabled",
+                type: 'enabled',
                 budget_tokens: budgetTokens,
             };
 
@@ -316,30 +253,24 @@ async function sendClaudeRequest(request, response) {
             delete requestBody.top_k;
         }
 
-        if (
-            fixThinkingPrefill &&
-            convertedPrompt.messages.length &&
-            convertedPrompt.messages[convertedPrompt.messages.length - 1]
-                .role === "assistant"
-        ) {
-            convertedPrompt.messages[convertedPrompt.messages.length - 1].role =
-                "user";
+        if (fixThinkingPrefill && convertedPrompt.messages.length && convertedPrompt.messages[convertedPrompt.messages.length - 1].role === 'assistant') {
+            convertedPrompt.messages[convertedPrompt.messages.length - 1].role = 'user';
         }
 
         if (betaHeaders.length) {
-            additionalHeaders["anthropic-beta"] = betaHeaders.join(",");
+            additionalHeaders['anthropic-beta'] = betaHeaders.join(',');
         }
 
-        console.debug("Claude request:", requestBody);
+        console.debug('Claude request:', requestBody);
 
-        const generateResponse = await fetch(apiUrl + "/messages", {
-            method: "POST",
+        const generateResponse = await fetch(apiUrl + '/messages', {
+            method: 'POST',
             signal: controller.signal,
             body: JSON.stringify(requestBody),
             headers: {
-                "Content-Type": "application/json",
-                "anthropic-version": "2023-06-01",
-                "x-api-key": apiKey,
+                'Content-Type': 'application/json',
+                'anthropic-version': '2023-06-01',
+                'x-api-key': apiKey,
                 ...additionalHeaders,
             },
         });
@@ -350,30 +281,21 @@ async function sendClaudeRequest(request, response) {
         } else {
             if (!generateResponse.ok) {
                 const generateResponseText = await generateResponse.text();
-                console.warn(
-                    color.red(
-                        `Claude API returned error: ${generateResponse.status} ${generateResponse.statusText}\n${generateResponseText}\n${divider}`
-                    )
-                );
+                console.warn(color.red(`Claude API returned error: ${generateResponse.status} ${generateResponse.statusText}\n${generateResponseText}\n${divider}`));
                 return response.status(500).send({ error: true });
             }
 
             /** @type {any} */
             const generateResponseJson = await generateResponse.json();
-            const responseText = generateResponseJson?.content?.[0]?.text || "";
-            console.debug("Claude response:", generateResponseJson);
+            const responseText = generateResponseJson?.content?.[0]?.text || '';
+            console.debug('Claude response:', generateResponseJson);
 
             // Wrap it back to OAI format + save the original content
-            const reply = {
-                choices: [{ message: { content: responseText } }],
-                content: generateResponseJson.content,
-            };
+            const reply = { choices: [{ 'message': { 'content': responseText } }], content: generateResponseJson.content };
             return response.send(reply);
         }
     } catch (error) {
-        console.error(
-            color.red(`Error communicating with Claude: ${error}\n${divider}`)
-        );
+        console.error(color.red(`Error communicating with Claude: ${error}\n${divider}`));
         if (!response.headersSent) {
             return response.status(500).send({ error: true });
         }
@@ -386,10 +308,8 @@ async function sendClaudeRequest(request, response) {
  * @param {express.Response} response Express response
  */
 async function sendMakerSuiteRequest(request, response) {
-    const useVertexAi =
-        request.body.chat_completion_source ===
-        CHAT_COMPLETION_SOURCES.VERTEXAI;
-    const apiName = useVertexAi ? "Google Vertex AI" : "Google AI Studio";
+    const useVertexAi = request.body.chat_completion_source === CHAT_COMPLETION_SOURCES.VERTEXAI;
+    const apiName = useVertexAi ? 'Google Vertex AI' : 'Google AI Studio';
     let apiUrl;
     let apiKey;
 
@@ -406,15 +326,11 @@ async function sendMakerSuiteRequest(request, response) {
             console.debug(`Using Vertex AI authentication type: ${authType}`);
         } catch (error) {
             console.warn(`${apiName} authentication failed: ${error.message}`);
-            return response
-                .status(400)
-                .send({ error: true, message: error.message });
+            return response.status(400).send({ error: true, message: error.message });
         }
     } else {
         apiUrl = new URL(request.body.reverse_proxy || API_MAKERSUITE);
-        apiKey = request.body.reverse_proxy
-            ? request.body.proxy_password
-            : readSecret(request.user.directories, SECRET_KEYS.MAKERSUITE);
+        apiKey = request.body.reverse_proxy ? request.body.proxy_password : readSecret(request.user.directories, SECRET_KEYS.MAKERSUITE);
 
         if (!request.body.reverse_proxy && !apiKey) {
             console.warn(`${apiName} API key is missing.`);
@@ -422,7 +338,7 @@ async function sendMakerSuiteRequest(request, response) {
         }
 
         authHeader = `Bearer ${apiKey}`;
-        authType = "api_key";
+        authType = 'api_key';
     }
 
     const model = String(request.body.model);
@@ -431,15 +347,11 @@ async function sendMakerSuiteRequest(request, response) {
     const requestImages = Boolean(request.body.request_images);
     const reasoningEffort = String(request.body.reasoning_effort);
     const includeReasoning = Boolean(request.body.include_reasoning);
-    const isGemma = model.includes("gemma");
-    const isLearnLM = model.includes("learnlm");
+    const isGemma = model.includes('gemma');
+    const isLearnLM = model.includes('learnlm');
 
-    const responseMimeType =
-        request.body.responseMimeType ??
-        (request.body.json_schema ? "application/json" : undefined);
-    const responseSchema =
-        request.body.responseSchema ??
-        (request.body.json_schema ? request.body.json_schema.value : undefined);
+    const responseMimeType = request.body.responseMimeType ?? (request.body.json_schema ? 'application/json' : undefined);
+    const responseSchema = request.body.responseSchema ?? (request.body.json_schema ? request.body.json_schema.value : undefined);
 
     const generationConfig = {
         stopSequences: request.body.stop,
@@ -456,94 +368,64 @@ async function sendMakerSuiteRequest(request, response) {
     function getGeminiBody() {
         // #region UGLY MODEL LISTS AREA
         const imageGenerationModels = [
-            "gemini-2.0-flash-exp",
-            "gemini-2.0-flash-exp-image-generation",
-            "gemini-2.0-flash-preview-image-generation",
+            'gemini-2.0-flash-exp',
+            'gemini-2.0-flash-exp-image-generation',
+            'gemini-2.0-flash-preview-image-generation',
         ];
 
         // These models do not support setting the threshold to OFF at all.
         const blockNoneModels = [
-            "gemini-1.5-pro-001",
-            "gemini-1.5-flash-001",
-            "gemini-1.5-flash-8b-exp-0827",
-            "gemini-1.5-flash-8b-exp-0924",
+            'gemini-1.5-pro-001',
+            'gemini-1.5-flash-001',
+            'gemini-1.5-flash-8b-exp-0827',
+            'gemini-1.5-flash-8b-exp-0924',
         ];
 
-        const isThinkingConfigModel = (m) => /^gemini-2.5-(flash|pro)/.test(m);
+        const isThinkingConfigModel = m => /^gemini-2.5-(flash|pro)/.test(m);
 
         const noSearchModels = [
-            "gemini-2.0-flash-lite",
-            "gemini-2.0-flash-lite-001",
-            "gemini-2.0-flash-lite-preview-02-05",
-            "gemini-1.5-flash-8b-exp-0924",
-            "gemini-1.5-flash-8b-exp-0827",
+            'gemini-2.0-flash-lite',
+            'gemini-2.0-flash-lite-001',
+            'gemini-2.0-flash-lite-preview-02-05',
+            'gemini-1.5-flash-8b-exp-0924',
+            'gemini-1.5-flash-8b-exp-0827',
         ];
         // #endregion
 
-        if (
-            !Array.isArray(generationConfig.stopSequences) ||
-            !generationConfig.stopSequences.length
-        ) {
+        if (!Array.isArray(generationConfig.stopSequences) || !generationConfig.stopSequences.length) {
             delete generationConfig.stopSequences;
         }
 
-        const enableImageModality =
-            requestImages && imageGenerationModels.includes(model);
+        const enableImageModality = requestImages && imageGenerationModels.includes(model);
         if (enableImageModality) {
-            generationConfig.responseModalities = ["text", "image"];
+            generationConfig.responseModalities = ['text', 'image'];
         }
 
-        const useSystemPrompt =
-            !enableImageModality &&
-            !isGemma &&
-            request.body.use_makersuite_sysprompt;
+        const useSystemPrompt = !enableImageModality && !isGemma && request.body.use_makersuite_sysprompt;
 
         const tools = [];
-        const prompt = convertGooglePrompt(
-            request.body.messages,
-            model,
-            useSystemPrompt,
-            getPromptNames(request)
-        );
+        const prompt = convertGooglePrompt(request.body.messages, model, useSystemPrompt, getPromptNames(request));
         let safetySettings = GEMINI_SAFETY;
 
         if (blockNoneModels.includes(model)) {
-            safetySettings = GEMINI_SAFETY.map((setting) => ({
-                ...setting,
-                threshold: "BLOCK_NONE",
-            }));
+            safetySettings = GEMINI_SAFETY.map(setting => ({ ...setting, threshold: 'BLOCK_NONE' }));
         }
 
-        if (
-            enableWebSearch &&
-            !enableImageModality &&
-            !isGemma &&
-            !isLearnLM &&
-            !noSearchModels.includes(model)
-        ) {
-            const searchTool = model.includes("1.5")
-                ? { google_search_retrieval: {} }
-                : { google_search: {} };
+        if (enableWebSearch && !enableImageModality && !isGemma && !isLearnLM && !noSearchModels.includes(model)) {
+            const searchTool = model.includes('1.5')
+                ? ({ google_search_retrieval: {} })
+                : ({ google_search: {} });
             tools.push(searchTool);
         }
 
-        if (
-            Array.isArray(request.body.tools) &&
-            request.body.tools.length > 0 &&
-            !enableImageModality &&
-            !isGemma
-        ) {
+        if (Array.isArray(request.body.tools) && request.body.tools.length > 0 && !enableImageModality && !isGemma) {
             const functionDeclarations = [];
             for (const tool of request.body.tools) {
-                if (tool.type === "function") {
+                if (tool.type === 'function') {
                     if (tool.function.parameters?.$schema) {
                         delete tool.function.parameters.$schema;
                     }
-                    if (
-                        tool.function.parameters?.properties &&
-                        Object.keys(tool.function.parameters.properties)
-                            .length === 0
-                    ) {
+                    if (tool.function.parameters?.properties && Object.keys(tool.function.parameters.properties).length === 0) {
                         delete tool.function.parameters;
                     }
                     functionDeclarations.push(tool.function);
@@ -555,24 +437,14 @@ async function sendMakerSuiteRequest(request, response) {
         if (isThinkingConfigModel(model)) {
             const thinkingConfig = { includeThoughts: includeReasoning };
 
-            const thinkingBudget = calculateGoogleBudgetTokens(
-                generationConfig.maxOutputTokens,
-                reasoningEffort,
-                model
-            );
+            const thinkingBudget = calculateGoogleBudgetTokens(generationConfig.maxOutputTokens, reasoningEffort, model);
             if (Number.isInteger(thinkingBudget)) {
                 thinkingConfig.thinkingBudget = thinkingBudget;
             }
 
             // Vertex doesn't allow mixing disabled thinking with includeThoughts
-            if (
-                useVertexAi &&
-                thinkingBudget === 0 &&
-                thinkingConfig.includeThoughts
-            ) {
-                console.info(
-                    "Thinking budget is 0, but includeThoughts is true. Thoughts will not be included in the response."
-                );
+            if (useVertexAi && thinkingBudget === 0 && thinkingConfig.includeThoughts) {
+                console.info('Thinking budget is 0, but includeThoughts is true. Thoughts will not be included in the response.');
                 thinkingConfig.includeThoughts = false;
             }
 
@@ -585,11 +457,7 @@ async function sendMakerSuiteRequest(request, response) {
             generationConfig: generationConfig,
         };
 
-        if (
-            useSystemPrompt &&
-            Array.isArray(prompt.system_instruction.parts) &&
-            prompt.system_instruction.parts.length
-        ) {
+        if (useSystemPrompt && Array.isArray(prompt.system_instruction.parts) && prompt.system_instruction.parts.length) {
             body.systemInstruction = prompt.system_instruction;
         }
 
@@ -605,47 +473,37 @@ async function sendMakerSuiteRequest(request, response) {
 
     try {
         const controller = new AbortController();
-        request.socket.removeAllListeners("close");
-        request.socket.on("close", function () {
+        request.socket.removeAllListeners('close');
+        request.socket.on('close', function () {
             controller.abort();
         });
 
-        const apiVersion = getConfigValue("gemini.apiVersion", "v1beta");
-        const responseType = stream
-            ? "streamGenerateContent"
-            : "generateContent";
+        const apiVersion = getConfigValue('gemini.apiVersion', 'v1beta');
+        const responseType = (stream ? 'streamGenerateContent' : 'generateContent');
 
         let url;
         let headers = {
-            "Content-Type": "application/json",
+            'Content-Type': 'application/json',
         };
 
         if (useVertexAi) {
-            if (authType === "express") {
+            if (authType === 'express') {
                 // For Express mode (API key authentication), use the key parameter
-                const keyParam = authHeader.replace("Bearer ", "");
-                const region = request.body.vertexai_region || "us-central1";
+                const keyParam = authHeader.replace('Bearer ', '');
+                const region = request.body.vertexai_region || 'us-central1';
                 const projectId = request.body.vertexai_express_project_id;
-                const baseUrl =
-                    region === "global"
-                        ? "https://aiplatform.googleapis.com"
-                        : `https://${region}-aiplatform.googleapis.com`;
+                const baseUrl = region === 'global'
+                    ? 'https://aiplatform.googleapis.com'
+                    : `https://${region}-aiplatform.googleapis.com`;
                 url = projectId
-                    ? `https://aiplatform.googleapis.com/v1/projects/${projectId}/locations/${region}/publishers/google/models/${model}:generateContent?key=${keyParam}${
-                          stream ? "&alt=sse" : ""
-                      }`
-                    : `${baseUrl}/v1/publishers/google/models/${model}:generateContent?key=${keyParam}${
-                          stream ? "&alt=sse" : ""
-                      }`;
-            } else if (authType === "full") {
+                    ? `https://aiplatform.googleapis.com/v1/projects/${projectId}/locations/${region}/publishers/google/models/${model}:generateContent?key=${keyParam}${stream ? '&alt=sse' : ''}`
+                    : `${baseUrl}/v1/publishers/google/models/${model}:generateContent?key=${keyParam}${stream ? '&alt=sse' : ''}`;
+            } else if (authType === 'full') {
                 // For Full mode (service account authentication), use project-specific URL
                 // Get project ID from Service Account JSON
-                const serviceAccountJson = readSecret(
-                    request.user.directories,
-                    SECRET_KEYS.VERTEXAI_SERVICE_ACCOUNT
-                );
+                const serviceAccountJson = readSecret(request.user.directories, SECRET_KEYS.VERTEXAI_SERVICE_ACCOUNT);
                 if (!serviceAccountJson) {
-                    console.warn("Vertex AI Service Account JSON is missing.");
+                    console.warn('Vertex AI Service Account JSON is missing.');
                     return response.status(400).send({ error: true });
                 }
 
@@ -654,50 +512,29 @@ async function sendMakerSuiteRequest(request, response) {
                     const serviceAccount = JSON.parse(serviceAccountJson);
                     projectId = getProjectIdFromServiceAccount(serviceAccount);
                 } catch (error) {
-                    console.error(
-                        "Failed to extract project ID from Service Account JSON:",
-                        error
-                    );
+                    console.error('Failed to extract project ID from Service Account JSON:', error);
                     return response.status(400).send({ error: true });
                 }
-                const region = request.body.vertexai_region || "us-central1";
+                const region = request.body.vertexai_region || 'us-central1';
                 // Handle global region differently - no region prefix in hostname
-                if (region === "global") {
-                    url = `https://aiplatform.googleapis.com/v1/projects/${projectId}/locations/${region}/publishers/google/models/${model}:${responseType}${
-                        stream ? "?alt=sse" : ""
-                    }`;
+                if (region === 'global') {
+                    url = `https://aiplatform.googleapis.com/v1/projects/${projectId}/locations/${region}/publishers/google/models/${model}:${responseType}${stream ? '?alt=sse' : ''}`;
                 } else {
-                    url = `https://${region}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${region}/publishers/google/models/${model}:${responseType}${
-                        stream ? "?alt=sse" : ""
-                    }`;
+                    url = `https://${region}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${region}/publishers/google/models/${model}:${responseType}${stream ? '?alt=sse' : ''}`;
                 }
-                headers["Authorization"] = authHeader;
+                headers['Authorization'] = authHeader;
             } else {
                 // For proxy mode, use the original URL with Authorization header
-                url = `${apiUrl
-                    .toString()
-                    .replace(
-                        /\/$/,
-                        ""
-                    )}/v1/publishers/google/models/${model}:${responseType}${
-                    stream ? "?alt=sse" : ""
-                }`;
-                headers["Authorization"] = authHeader;
+                url = `${apiUrl.toString().replace(/\/$/, '')}/v1/publishers/google/models/${model}:${responseType}${stream ? '?alt=sse' : ''}`;
+                headers['Authorization'] = authHeader;
             }
         } else {
-            url = `${apiUrl
-                .toString()
-                .replace(
-                    /\/$/,
-                    ""
-                )}/${apiVersion}/models/${model}:${responseType}?key=${apiKey}${
-                stream ? "&alt=sse" : ""
-            }`;
+            url = `${apiUrl.toString().replace(/\/$/, '')}/${apiVersion}/models/${model}:${responseType}?key=${apiKey}${stream ? '&alt=sse' : ''}`;
         }
 
         const generateResponse = await fetch(url, {
             body: JSON.stringify(body),
-            method: "POST",
+            method: 'POST',
             headers: headers,
             signal: controller.signal,
         });
@@ -707,20 +544,14 @@ async function sendMakerSuiteRequest(request, response) {
                 // Pipe remote SSE stream to Express response
                 forwardFetchResponse(generateResponse, response);
             } catch (error) {
-                console.error("Error forwarding streaming response:", error);
+                console.error('Error forwarding streaming response:', error);
                 if (!response.headersSent) {
                     return response.status(500).send({ error: true });
                 }
             }
         } else {
             if (!generateResponse.ok) {
-                console.warn(
-                    `${apiName} API returned error: ${
-                        generateResponse.status
-                    } ${
-                        generateResponse.statusText
-                    } ${await generateResponse.text()}`
-                );
+                console.warn(`${apiName} API returned error: ${generateResponse.status} ${generateResponse.statusText} ${await generateResponse.text()}`);
                 return response.status(500).send({ error: true });
             }
 
@@ -737,26 +568,12 @@ async function sendMakerSuiteRequest(request, response) {
                 return response.send({ error: { message } });
             }
 
-            const responseContent =
-                candidates[0].content ?? candidates[0].output;
-            const functionCall = (candidates?.[0]?.content?.parts ?? []).some(
-                (part) => part.functionCall
-            );
-            const inlineData = (candidates?.[0]?.content?.parts ?? []).some(
-                (part) => part.inlineData
-            );
-            console.debug(
-                `${apiName} response:`,
-                util.inspect(generateResponseJson, { depth: 5, colors: true })
-            );
+            const responseContent = candidates[0].content ?? candidates[0].output;
+            const functionCall = (candidates?.[0]?.content?.parts ?? []).some(part => part.functionCall);
+            const inlineData = (candidates?.[0]?.content?.parts ?? []).some(part => part.inlineData);
+            console.debug(`${apiName} response:`, util.inspect(generateResponseJson, { depth: 5, colors: true }));
 
-            const responseText =
-                typeof responseContent === "string"
-                    ? responseContent
-                    : responseContent?.parts
-                          ?.filter((part) => !part.thought)
-                          ?.map((part) => part.text)
-                          ?.join("\n\n");
+            const responseText = typeof responseContent === 'string' ? responseContent : responseContent?.parts?.filter(part => !part.thought)?.map(part => part.text)?.join('\n\n');
             if (!responseText && !functionCall && !inlineData) {
                 let message = `${apiName} Candidate text empty`;
                 console.warn(message, generateResponseJson);
@@ -764,10 +581,7 @@ async function sendMakerSuiteRequest(request, response) {
             }
 
             // Wrap it back to OAI format
-            const reply = {
-                choices: [{ message: { content: responseText } }],
-                responseContent,
-            };
+            const reply = { choices: [{ 'message': { 'content': responseText } }], responseContent };
             return response.send(reply);
         }
     } catch (error) {
@@ -788,35 +602,28 @@ async function sendAI21Request(request, response) {
 
     const apiKey = readSecret(request.user.directories, SECRET_KEYS.AI21);
     if (!apiKey) {
-        console.warn("AI21 API key is missing.");
+        console.warn('AI21 API key is missing.');
         return response.status(400).send({ error: true });
     }
 
     const bodyParams = {};
     const controller = new AbortController();
-    request.socket.removeAllListeners("close");
-    request.socket.on("close", function () {
+    request.socket.removeAllListeners('close');
+    request.socket.on('close', function () {
         controller.abort();
     });
     // Hack to support JSON schema
     if (request.body.json_schema) {
         bodyParams.response_format = {
-            type: "json_object",
+            type: 'json_object',
         };
         const message = {
-            role: "user",
-            content: `JSON schema for the response:\n${JSON.stringify(
-                request.body.json_schema.value,
-                null,
-                4
-            )}`,
+            role: 'user',
+            content: `JSON schema for the response:\n${JSON.stringify(request.body.json_schema.value, null, 4)}`,
         };
         request.body.messages.push(message);
     }
-    const convertedPrompt = convertAI21Messages(
-        request.body.messages,
-        getPromptNames(request)
-    );
+    const convertedPrompt = convertAI21Messages(request.body.messages, getPromptNames(request));
     const body = {
         messages: convertedPrompt,
         model: request.body.model,
@@ -829,40 +636,35 @@ async function sendAI21Request(request, response) {
         ...bodyParams,
     };
     const options = {
-        method: "POST",
+        method: 'POST',
         headers: {
-            accept: "application/json",
-            "content-type": "application/json",
+            accept: 'application/json',
+            'content-type': 'application/json',
             Authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify(body),
         signal: controller.signal,
     };
 
-    console.debug("AI21 request:", body);
+    console.debug('AI21 request:', body);
 
     try {
-        const generateResponse = await fetch(
-            API_AI21 + "/chat/completions",
-            options
-        );
+        const generateResponse = await fetch(API_AI21 + '/chat/completions', options);
         if (request.body.stream) {
             forwardFetchResponse(generateResponse, response);
         } else {
             if (!generateResponse.ok) {
                 const errorText = await generateResponse.text();
-                console.warn(
-                    `AI21 API returned error: ${generateResponse.status} ${generateResponse.statusText} ${errorText}`
-                );
+                console.warn(`AI21 API returned error: ${generateResponse.status} ${generateResponse.statusText} ${errorText}`);
                 const errorJson = tryParse(errorText) ?? { error: true };
                 return response.status(500).send(errorJson);
             }
             const generateResponseJson = await generateResponse.json();
-            console.debug("AI21 response:", generateResponseJson);
+            console.debug('AI21 response:', generateResponseJson);
             return response.send(generateResponseJson);
         }
     } catch (error) {
-        console.error("Error communicating with AI21 API: ", error);
+        console.error('Error communicating with AI21 API: ', error);
         if (!response.headersSent) {
             response.send({ error: true });
         } else {
@@ -877,58 +679,44 @@ async function sendAI21Request(request, response) {
  * @param {express.Response} response Express response
  */
 async function sendMistralAIRequest(request, response) {
-    const apiUrl = new URL(
-        request.body.reverse_proxy || API_MISTRAL
-    ).toString();
-    const apiKey = request.body.reverse_proxy
-        ? request.body.proxy_password
-        : readSecret(request.user.directories, SECRET_KEYS.MISTRALAI);
+    const apiUrl = new URL(request.body.reverse_proxy || API_MISTRAL).toString();
+    const apiKey = request.body.reverse_proxy ? request.body.proxy_password : readSecret(request.user.directories, SECRET_KEYS.MISTRALAI);
 
     if (!apiKey) {
-        console.warn("MistralAI API key is missing.");
+        console.warn('MistralAI API key is missing.');
         return response.status(400).send({ error: true });
     }
 
     try {
-        const messages = convertMistralMessages(
-            request.body.messages,
-            getPromptNames(request)
-        );
+        const messages = convertMistralMessages(request.body.messages, getPromptNames(request));
         const controller = new AbortController();
-        request.socket.removeAllListeners("close");
-        request.socket.on("close", function () {
+        request.socket.removeAllListeners('close');
+        request.socket.on('close', function () {
             controller.abort();
         });
 
         const requestBody = {
-            model: request.body.model,
-            messages: messages,
-            temperature: request.body.temperature,
-            top_p: request.body.top_p,
-            frequency_penalty: request.body.frequency_penalty,
-            presence_penalty: request.body.presence_penalty,
-            max_tokens: request.body.max_tokens,
-            stream: request.body.stream,
-            safe_prompt: request.body.safe_prompt,
-            random_seed:
-                request.body.seed === -1 ? undefined : request.body.seed,
-            stop:
-                Array.isArray(request.body.stop) && request.body.stop.length > 0
-                    ? request.body.stop
-                    : undefined,
+            'model': request.body.model,
+            'messages': messages,
+            'temperature': request.body.temperature,
+            'top_p': request.body.top_p,
+            'frequency_penalty': request.body.frequency_penalty,
+            'presence_penalty': request.body.presence_penalty,
+            'max_tokens': request.body.max_tokens,
+            'stream': request.body.stream,
+            'safe_prompt': request.body.safe_prompt,
+            'random_seed': request.body.seed === -1 ? undefined : request.body.seed,
+            'stop': Array.isArray(request.body.stop) && request.body.stop.length > 0 ? request.body.stop : undefined,
         };
 
-        if (
-            Array.isArray(request.body.tools) &&
-            request.body.tools.length > 0
-        ) {
-            requestBody["tools"] = request.body.tools;
-            requestBody["tool_choice"] = request.body.tool_choice;
+        if (Array.isArray(request.body.tools) && request.body.tools.length > 0) {
+            requestBody['tools'] = request.body.tools;
+            requestBody['tool_choice'] = request.body.tool_choice;
         }
 
         if (request.body.json_schema) {
-            requestBody["response_format"] = {
-                type: "json_schema",
+            requestBody['response_format'] = {
+                type: 'json_schema',
                 json_schema: {
                     name: request.body.json_schema.name,
                     description: request.body.json_schema.description,
@@ -939,39 +727,34 @@ async function sendMistralAIRequest(request, response) {
         }
 
         const config = {
-            method: "POST",
+            method: 'POST',
             headers: {
-                "Content-Type": "application/json",
-                Authorization: "Bearer " + apiKey,
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + apiKey,
             },
             body: JSON.stringify(requestBody),
             signal: controller.signal,
             timeout: 0,
         };
 
-        console.debug("MisralAI request:", requestBody);
+        console.debug('MisralAI request:', requestBody);
 
-        const generateResponse = await fetch(
-            apiUrl + "/chat/completions",
-            config
-        );
+        const generateResponse = await fetch(apiUrl + '/chat/completions', config);
         if (request.body.stream) {
             forwardFetchResponse(generateResponse, response);
         } else {
             if (!generateResponse.ok) {
                 const errorText = await generateResponse.text();
-                console.warn(
-                    `MistralAI API returned error: ${generateResponse.status} ${generateResponse.statusText} ${errorText}`
-                );
+                console.warn(`MistralAI API returned error: ${generateResponse.status} ${generateResponse.statusText} ${errorText}`);
                 const errorJson = tryParse(errorText) ?? { error: true };
                 return response.status(500).send(errorJson);
             }
             const generateResponseJson = await generateResponse.json();
-            console.debug("MistralAI response:", generateResponseJson);
+            console.debug('MistralAI response:', generateResponseJson);
             return response.send(generateResponseJson);
         }
     } catch (error) {
-        console.error("Error communicating with MistralAI API: ", error);
+        console.error('Error communicating with MistralAI API: ', error);
         if (!response.headersSent) {
             response.send({ error: true });
         } else {
@@ -988,29 +771,23 @@ async function sendMistralAIRequest(request, response) {
 async function sendCohereRequest(request, response) {
     const apiKey = readSecret(request.user.directories, SECRET_KEYS.COHERE);
     const controller = new AbortController();
-    request.socket.removeAllListeners("close");
-    request.socket.on("close", function () {
+    request.socket.removeAllListeners('close');
+    request.socket.on('close', function () {
         controller.abort();
     });
 
     if (!apiKey) {
-        console.warn("Cohere API key is missing.");
+        console.warn('Cohere API key is missing.');
         return response.status(400).send({ error: true });
     }
 
     try {
-        const convertedHistory = convertCohereMessages(
-            request.body.messages,
-            getPromptNames(request)
-        );
+        const convertedHistory = convertCohereMessages(request.body.messages, getPromptNames(request));
         const tools = [];
 
-        if (
-            Array.isArray(request.body.tools) &&
-            request.body.tools.length > 0
-        ) {
+        if (Array.isArray(request.body.tools) && request.body.tools.length > 0) {
             tools.push(...request.body.tools);
-            tools.forEach((tool) => {
+            tools.forEach(tool => {
                 if (tool?.function?.parameters?.$schema) {
                     delete tool.function.parameters.$schema;
                 }
@@ -1034,32 +811,32 @@ async function sendCohereRequest(request, response) {
             tools: tools,
         };
 
-        const canDoSafetyMode = String(request.body.model).endsWith("08-2024");
+        const canDoSafetyMode = String(request.body.model).endsWith('08-2024');
         if (canDoSafetyMode) {
-            requestBody.safety_mode = "OFF";
+            requestBody.safety_mode = 'OFF';
         }
 
         if (request.body.json_schema) {
             requestBody.response_format = {
-                type: "json_schema",
+                type: 'json_schema',
                 schema: request.body.json_schema.value,
             };
         }
 
-        console.debug("Cohere request:", requestBody);
+        console.debug('Cohere request:', requestBody);
 
         const config = {
-            method: "POST",
+            method: 'POST',
             headers: {
-                "Content-Type": "application/json",
-                Authorization: "Bearer " + apiKey,
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + apiKey,
             },
             body: JSON.stringify(requestBody),
             signal: controller.signal,
             timeout: 0,
         };
 
-        const apiUrl = API_COHERE_V2 + "/chat";
+        const apiUrl = API_COHERE_V2 + '/chat';
 
         if (request.body.stream) {
             const stream = await fetch(apiUrl, config);
@@ -1068,18 +845,16 @@ async function sendCohereRequest(request, response) {
             const generateResponse = await fetch(apiUrl, config);
             if (!generateResponse.ok) {
                 const errorText = await generateResponse.text();
-                console.warn(
-                    `Cohere API returned error: ${generateResponse.status} ${generateResponse.statusText} ${errorText}`
-                );
+                console.warn(`Cohere API returned error: ${generateResponse.status} ${generateResponse.statusText} ${errorText}`);
                 const errorJson = tryParse(errorText) ?? { error: true };
                 return response.status(500).send(errorJson);
             }
             const generateResponseJson = await generateResponse.json();
-            console.debug("Cohere response:", generateResponseJson);
+            console.debug('Cohere response:', generateResponseJson);
             return response.send(generateResponseJson);
         }
     } catch (error) {
-        console.error("Error communicating with Cohere API: ", error);
+        console.error('Error communicating with Cohere API: ', error);
         if (!response.headersSent) {
             response.send({ error: true });
         } else {
@@ -1094,21 +869,17 @@ async function sendCohereRequest(request, response) {
  * @param {express.Response} response Express response
  */
 async function sendDeepSeekRequest(request, response) {
-    const apiUrl = new URL(
-        request.body.reverse_proxy || API_DEEPSEEK
-    ).toString();
-    const apiKey = request.body.reverse_proxy
-        ? request.body.proxy_password
-        : readSecret(request.user.directories, SECRET_KEYS.DEEPSEEK);
+    const apiUrl = new URL(request.body.reverse_proxy || API_DEEPSEEK).toString();
+    const apiKey = request.body.reverse_proxy ? request.body.proxy_password : readSecret(request.user.directories, SECRET_KEYS.DEEPSEEK);
 
     if (!apiKey && !request.body.reverse_proxy) {
-        console.warn("DeepSeek API key is missing.");
+        console.warn('DeepSeek API key is missing.');
         return response.status(400).send({ error: true });
     }
 
     const controller = new AbortController();
-    request.socket.removeAllListeners("close");
-    request.socket.on("close", function () {
+    request.socket.removeAllListeners('close');
+    request.socket.on('close', function () {
         controller.abort();
     });
 
@@ -1116,19 +887,16 @@ async function sendDeepSeekRequest(request, response) {
         let bodyParams = {};
 
         if (request.body.logprobs > 0) {
-            bodyParams["top_logprobs"] = request.body.logprobs;
-            bodyParams["logprobs"] = true;
+            bodyParams['top_logprobs'] = request.body.logprobs;
+            bodyParams['logprobs'] = true;
         }
 
-        if (
-            Array.isArray(request.body.tools) &&
-            request.body.tools.length > 0
-        ) {
-            bodyParams["tools"] = request.body.tools;
-            bodyParams["tool_choice"] = request.body.tool_choice;
+        if (Array.isArray(request.body.tools) && request.body.tools.length > 0) {
+            bodyParams['tools'] = request.body.tools;
+            bodyParams['tool_choice'] = request.body.tool_choice;
 
             // DeepSeek doesn't permit empty required arrays
-            bodyParams.tools.forEach((tool) => {
+            bodyParams.tools.forEach(tool => {
                 const required = tool?.function?.parameters?.required;
                 if (Array.isArray(required) && required.length === 0) {
                     delete tool.function.parameters.required;
@@ -1139,80 +907,63 @@ async function sendDeepSeekRequest(request, response) {
         // Hack to support JSON schema
         if (request.body.json_schema) {
             bodyParams.response_format = {
-                type: "json_object",
+                type: 'json_object',
             };
             const message = {
-                role: "user",
-                content: `JSON schema for the response:\n${JSON.stringify(
-                    request.body.json_schema.value,
-                    null,
-                    4
-                )}`,
+                role: 'user',
+                content: `JSON schema for the response:\n${JSON.stringify(request.body.json_schema.value, null, 4)}`,
             };
             request.body.messages.push(message);
         }
 
-        const postProcessType = String(request.body.model).endsWith("-reasoner")
+        const postProcessType = String(request.body.model).endsWith('-reasoner')
             ? PROMPT_PROCESSING_TYPE.STRICT_TOOLS
             : PROMPT_PROCESSING_TYPE.SEMI_TOOLS;
-        const processedMessages = addAssistantPrefix(
-            postProcessPrompt(
-                request.body.messages,
-                postProcessType,
-                getPromptNames(request)
-            ),
-            bodyParams.tools,
-            "prefix"
-        );
+        const processedMessages = addAssistantPrefix(postProcessPrompt(request.body.messages, postProcessType, getPromptNames(request)), bodyParams.tools, 'prefix');
 
         const requestBody = {
-            messages: processedMessages,
-            model: request.body.model,
-            temperature: request.body.temperature,
-            max_tokens: request.body.max_tokens,
-            stream: request.body.stream,
-            presence_penalty: request.body.presence_penalty,
-            frequency_penalty: request.body.frequency_penalty,
-            top_p: request.body.top_p,
-            stop: request.body.stop,
-            seed: request.body.seed,
+            'messages': processedMessages,
+            'model': request.body.model,
+            'temperature': request.body.temperature,
+            'max_tokens': request.body.max_tokens,
+            'stream': request.body.stream,
+            'presence_penalty': request.body.presence_penalty,
+            'frequency_penalty': request.body.frequency_penalty,
+            'top_p': request.body.top_p,
+            'stop': request.body.stop,
+            'seed': request.body.seed,
             ...bodyParams,
         };
 
         const config = {
-            method: "POST",
+            method: 'POST',
             headers: {
-                "Content-Type": "application/json",
-                Authorization: "Bearer " + apiKey,
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + apiKey,
             },
             body: JSON.stringify(requestBody),
             signal: controller.signal,
         };
 
-        console.debug("DeepSeek request:", requestBody);
+        console.debug('DeepSeek request:', requestBody);
 
-        const generateResponse = await fetch(
-            apiUrl + "/chat/completions",
-            config
-        );
+        const generateResponse = await fetch(apiUrl + '/chat/completions', config);
 
         if (request.body.stream) {
             forwardFetchResponse(generateResponse, response);
         } else {
             if (!generateResponse.ok) {
                 const errorText = await generateResponse.text();
-                console.warn(
-                    `DeepSeek API returned error: ${generateResponse.status} ${generateResponse.statusText} ${errorText}`
-                );
+                console.warn(`DeepSeek API returned error: ${generateResponse.status} ${generateResponse.statusText} ${errorText}`);
                 const errorJson = tryParse(errorText) ?? { error: true };
                 return response.status(500).send(errorJson);
             }
             const generateResponseJson = await generateResponse.json();
-            console.debug("DeepSeek response:", generateResponseJson);
+            console.debug('DeepSeek response:', generateResponseJson);
             return response.send(generateResponseJson);
         }
     } catch (error) {
-        console.error("Error communicating with DeepSeek API: ", error);
+        console.error('Error communicating with DeepSeek API: ', error);
         if (!response.headersSent) {
             response.send({ error: true });
         } else {
@@ -1228,18 +979,16 @@ async function sendDeepSeekRequest(request, response) {
  */
 async function sendXaiRequest(request, response) {
     const apiUrl = new URL(request.body.reverse_proxy || API_XAI).toString();
-    const apiKey = request.body.reverse_proxy
-        ? request.body.proxy_password
-        : readSecret(request.user.directories, SECRET_KEYS.XAI);
+    const apiKey = request.body.reverse_proxy ? request.body.proxy_password : readSecret(request.user.directories, SECRET_KEYS.XAI);
 
     if (!apiKey && !request.body.reverse_proxy) {
-        console.warn("xAI API key is missing.");
+        console.warn('xAI API key is missing.');
         return response.status(400).send({ error: true });
     }
 
     const controller = new AbortController();
-    request.socket.removeAllListeners("close");
-    request.socket.on("close", function () {
+    request.socket.removeAllListeners('close');
+    request.socket.on('close', function () {
         controller.abort();
     });
 
@@ -1247,46 +996,37 @@ async function sendXaiRequest(request, response) {
         let bodyParams = {};
 
         if (request.body.logprobs > 0) {
-            bodyParams["top_logprobs"] = request.body.logprobs;
-            bodyParams["logprobs"] = true;
+            bodyParams['top_logprobs'] = request.body.logprobs;
+            bodyParams['logprobs'] = true;
         }
 
-        if (
-            Array.isArray(request.body.tools) &&
-            request.body.tools.length > 0
-        ) {
-            bodyParams["tools"] = request.body.tools;
-            bodyParams["tool_choice"] = request.body.tool_choice;
+        if (Array.isArray(request.body.tools) && request.body.tools.length > 0) {
+            bodyParams['tools'] = request.body.tools;
+            bodyParams['tool_choice'] = request.body.tool_choice;
         }
 
         if (Array.isArray(request.body.stop) && request.body.stop.length > 0) {
-            bodyParams["stop"] = request.body.stop;
+            bodyParams['stop'] = request.body.stop;
         }
 
-        if (
-            request.body.reasoning_effort &&
-            ["grok-3-mini-beta", "grok-3-mini-fast-beta"].includes(
-                request.body.model
-            )
-        ) {
-            bodyParams["reasoning_effort"] =
-                request.body.reasoning_effort === "high" ? "high" : "low";
+        if (request.body.reasoning_effort && ['grok-3-mini-beta', 'grok-3-mini-fast-beta'].includes(request.body.model)) {
+            bodyParams['reasoning_effort'] = request.body.reasoning_effort === 'high' ? 'high' : 'low';
         }
 
         if (request.body.enable_web_search) {
-            bodyParams["search_parameters"] = {
-                mode: "on",
+            bodyParams['search_parameters'] = {
+                mode: 'on',
                 sources: [
-                    { type: "web", safe_search: false },
-                    { type: "news", safe_search: false },
-                    { type: "x" },
+                    { type: 'web', safe_search: false },
+                    { type: 'news', safe_search: false },
+                    { type: 'x' },
                 ],
             };
         }
 
         if (request.body.json_schema) {
-            bodyParams["response_format"] = {
-                type: "json_schema",
+            bodyParams['response_format'] = {
+                type: 'json_schema',
                 json_schema: {
                     name: request.body.json_schema.name,
                     strict: request.body.json_schema.strict ?? true,
@@ -1295,60 +1035,52 @@ async function sendXaiRequest(request, response) {
             };
         }
 
-        const processedMessages = (request.body.messages = convertXAIMessages(
-            request.body.messages,
-            getPromptNames(request)
-        ));
+        const processedMessages = request.body.messages = convertXAIMessages(request.body.messages, getPromptNames(request));
 
         const requestBody = {
-            messages: processedMessages,
-            model: request.body.model,
-            temperature: request.body.temperature,
-            max_tokens: request.body.max_tokens,
-            max_completion_tokens: request.body.max_completion_tokens,
-            stream: request.body.stream,
-            presence_penalty: request.body.presence_penalty,
-            frequency_penalty: request.body.frequency_penalty,
-            top_p: request.body.top_p,
-            seed: request.body.seed,
-            n: request.body.n,
+            'messages': processedMessages,
+            'model': request.body.model,
+            'temperature': request.body.temperature,
+            'max_tokens': request.body.max_tokens,
+            'max_completion_tokens': request.body.max_completion_tokens,
+            'stream': request.body.stream,
+            'presence_penalty': request.body.presence_penalty,
+            'frequency_penalty': request.body.frequency_penalty,
+            'top_p': request.body.top_p,
+            'seed': request.body.seed,
+            'n': request.body.n,
             ...bodyParams,
         };
 
         const config = {
-            method: "POST",
+            method: 'POST',
             headers: {
-                "Content-Type": "application/json",
-                Authorization: "Bearer " + apiKey,
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + apiKey,
             },
             body: JSON.stringify(requestBody),
             signal: controller.signal,
         };
 
-        console.debug("xAI request:", requestBody);
+        console.debug('xAI request:', requestBody);
 
-        const generateResponse = await fetch(
-            apiUrl + "/chat/completions",
-            config
-        );
+        const generateResponse = await fetch(apiUrl + '/chat/completions', config);
 
         if (request.body.stream) {
             forwardFetchResponse(generateResponse, response);
         } else {
             if (!generateResponse.ok) {
                 const errorText = await generateResponse.text();
-                console.warn(
-                    `xAI API returned error: ${generateResponse.status} ${generateResponse.statusText} ${errorText}`
-                );
+                console.warn(`xAI API returned error: ${generateResponse.status} ${generateResponse.statusText} ${errorText}`);
                 const errorJson = tryParse(errorText) ?? { error: true };
                 return response.status(500).send(errorJson);
             }
             const generateResponseJson = await generateResponse.json();
-            console.debug("xAI response:", generateResponseJson);
+            console.debug('xAI response:', generateResponseJson);
             return response.send(generateResponseJson);
         }
     } catch (error) {
-        console.error("Error communicating with xAI API: ", error);
+        console.error('Error communicating with xAI API: ', error);
         if (!response.headersSent) {
             response.send({ error: true });
         } else {
@@ -1367,13 +1099,13 @@ async function sendAimlapiRequest(request, response) {
     const apiKey = readSecret(request.user.directories, SECRET_KEYS.AIMLAPI);
 
     if (!apiKey) {
-        console.warn("AI/ML API key is missing.");
+        console.warn('AI/ML API key is missing.');
         return response.status(400).send({ error: true });
     }
 
     const controller = new AbortController();
-    request.socket.removeAllListeners("close");
-    request.socket.on("close", function () {
+    request.socket.removeAllListeners('close');
+    request.socket.on('close', function () {
         controller.abort();
     });
 
@@ -1381,29 +1113,26 @@ async function sendAimlapiRequest(request, response) {
         let bodyParams = {};
 
         if (request.body.logprobs > 0) {
-            bodyParams["top_logprobs"] = request.body.logprobs;
-            bodyParams["logprobs"] = true;
+            bodyParams['top_logprobs'] = request.body.logprobs;
+            bodyParams['logprobs'] = true;
         }
 
-        if (
-            Array.isArray(request.body.tools) &&
-            request.body.tools.length > 0
-        ) {
-            bodyParams["tools"] = request.body.tools;
-            bodyParams["tool_choice"] = request.body.tool_choice;
+        if (Array.isArray(request.body.tools) && request.body.tools.length > 0) {
+            bodyParams['tools'] = request.body.tools;
+            bodyParams['tool_choice'] = request.body.tool_choice;
         }
 
         if (Array.isArray(request.body.stop) && request.body.stop.length > 0) {
-            bodyParams["stop"] = request.body.stop;
+            bodyParams['stop'] = request.body.stop;
         }
 
         if (request.body.reasoning_effort) {
-            bodyParams["reasoning_effort"] = request.body.reasoning_effort;
+            bodyParams['reasoning_effort'] = request.body.reasoning_effort;
         }
 
         if (request.body.json_schema) {
-            bodyParams["response_format"] = {
-                type: "json_schema",
+            bodyParams['response_format'] = {
+                type: 'json_schema',
                 json_schema: {
                     name: request.body.json_schema.name,
                     description: request.body.json_schema.description,
@@ -1414,54 +1143,49 @@ async function sendAimlapiRequest(request, response) {
         }
 
         const requestBody = {
-            messages: request.body.messages,
-            model: request.body.model,
-            temperature: request.body.temperature,
-            max_tokens: request.body.max_tokens,
-            stream: request.body.stream,
-            presence_penalty: request.body.presence_penalty,
-            frequency_penalty: request.body.frequency_penalty,
-            top_p: request.body.top_p,
-            seed: request.body.seed,
-            n: request.body.n,
+            'messages': request.body.messages,
+            'model': request.body.model,
+            'temperature': request.body.temperature,
+            'max_tokens': request.body.max_tokens,
+            'stream': request.body.stream,
+            'presence_penalty': request.body.presence_penalty,
+            'frequency_penalty': request.body.frequency_penalty,
+            'top_p': request.body.top_p,
+            'seed': request.body.seed,
+            'n': request.body.n,
             ...bodyParams,
         };
 
         const config = {
-            method: "POST",
+            method: 'POST',
             headers: {
-                "Content-Type": "application/json",
-                Authorization: "Bearer " + apiKey,
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + apiKey,
                 ...AIMLAPI_HEADERS,
             },
             body: JSON.stringify(requestBody),
             signal: controller.signal,
         };
 
-        console.debug("AI/ML API request:", requestBody);
+        console.debug('AI/ML API request:', requestBody);
 
-        const generateResponse = await fetch(
-            apiUrl + "/chat/completions",
-            config
-        );
+        const generateResponse = await fetch(apiUrl + '/chat/completions', config);
 
         if (request.body.stream) {
             forwardFetchResponse(generateResponse, response);
         } else {
             if (!generateResponse.ok) {
                 const errorText = await generateResponse.text();
-                console.warn(
-                    `AI/ML API returned error: ${generateResponse.status} ${generateResponse.statusText} ${errorText}`
-                );
+                console.warn(`AI/ML API returned error: ${generateResponse.status} ${generateResponse.statusText} ${errorText}`);
                 const errorJson = tryParse(errorText) ?? { error: true };
                 return response.status(500).send(errorJson);
             }
             const generateResponseJson = await generateResponse.json();
-            console.debug("AI/ML API response:", generateResponseJson);
+            console.debug('AI/ML API response:', generateResponseJson);
             return response.send(generateResponseJson);
         }
     } catch (error) {
-        console.error("Error communicating with AI/ML API: ", error);
+        console.error('Error communicating with AI/ML API: ', error);
         if (!response.headersSent) {
             response.send({ error: true });
         } else {
@@ -1472,132 +1196,81 @@ async function sendAimlapiRequest(request, response) {
 
 export const router = express.Router();
 
-router.post("/status", async function (request, statusResponse) {
+router.post('/status', async function (request, statusResponse) {
     if (!request.body) return statusResponse.sendStatus(400);
 
     let apiUrl;
     let apiKey;
     let headers;
 
-    if (
-        request.body.chat_completion_source === CHAT_COMPLETION_SOURCES.OPENAI
-    ) {
+    if (request.body.chat_completion_source === CHAT_COMPLETION_SOURCES.OPENAI) {
         apiUrl = new URL(request.body.reverse_proxy || API_OPENAI).toString();
-        apiKey = request.body.reverse_proxy
-            ? request.body.proxy_password
-            : readSecret(request.user.directories, SECRET_KEYS.OPENAI);
+        apiKey = request.body.reverse_proxy ? request.body.proxy_password : readSecret(request.user.directories, SECRET_KEYS.OPENAI);
         headers = {};
-    } else if (
-        request.body.chat_completion_source ===
-        CHAT_COMPLETION_SOURCES.OPENROUTER
-    ) {
-        apiUrl = "https://openrouter.ai/api/v1";
+    } else if (request.body.chat_completion_source === CHAT_COMPLETION_SOURCES.OPENROUTER) {
+        apiUrl = 'https://openrouter.ai/api/v1';
         apiKey = readSecret(request.user.directories, SECRET_KEYS.OPENROUTER);
         // OpenRouter needs to pass the Referer and X-Title: https://openrouter.ai/docs#requests
         headers = { ...OPENROUTER_HEADERS };
-    } else if (
-        request.body.chat_completion_source ===
-        CHAT_COMPLETION_SOURCES.MISTRALAI
-    ) {
+    } else if (request.body.chat_completion_source === CHAT_COMPLETION_SOURCES.MISTRALAI) {
         apiUrl = new URL(request.body.reverse_proxy || API_MISTRAL).toString();
-        apiKey = request.body.reverse_proxy
-            ? request.body.proxy_password
-            : readSecret(request.user.directories, SECRET_KEYS.MISTRALAI);
+        apiKey = request.body.reverse_proxy ? request.body.proxy_password : readSecret(request.user.directories, SECRET_KEYS.MISTRALAI);
         headers = {};
-    } else if (
-        request.body.chat_completion_source === CHAT_COMPLETION_SOURCES.CUSTOM
-    ) {
+    } else if (request.body.chat_completion_source === CHAT_COMPLETION_SOURCES.CUSTOM) {
         apiUrl = request.body.custom_url;
         apiKey = readSecret(request.user.directories, SECRET_KEYS.CUSTOM);
         headers = {};
         mergeObjectWithYaml(headers, request.body.custom_include_headers);
-    } else if (
-        request.body.chat_completion_source === CHAT_COMPLETION_SOURCES.COHERE
-    ) {
+    } else if (request.body.chat_completion_source === CHAT_COMPLETION_SOURCES.COHERE) {
         apiUrl = API_COHERE_V1;
         apiKey = readSecret(request.user.directories, SECRET_KEYS.COHERE);
         headers = {};
-    } else if (
-        request.body.chat_completion_source === CHAT_COMPLETION_SOURCES.NANOGPT
-    ) {
+    } else if (request.body.chat_completion_source === CHAT_COMPLETION_SOURCES.NANOGPT) {
         apiUrl = API_NANOGPT;
         apiKey = readSecret(request.user.directories, SECRET_KEYS.NANOGPT);
         headers = {};
-    } else if (
-        request.body.chat_completion_source === CHAT_COMPLETION_SOURCES.DEEPSEEK
-    ) {
-        apiUrl = new URL(
-            request.body.reverse_proxy || API_DEEPSEEK.replace("/beta", "")
-        );
-        apiKey = request.body.reverse_proxy
-            ? request.body.proxy_password
-            : readSecret(request.user.directories, SECRET_KEYS.DEEPSEEK);
+    } else if (request.body.chat_completion_source === CHAT_COMPLETION_SOURCES.DEEPSEEK) {
+        apiUrl = new URL(request.body.reverse_proxy || API_DEEPSEEK.replace('/beta', ''));
+        apiKey = request.body.reverse_proxy ? request.body.proxy_password : readSecret(request.user.directories, SECRET_KEYS.DEEPSEEK);
         headers = {};
-    } else if (
-        request.body.chat_completion_source === CHAT_COMPLETION_SOURCES.XAI
-    ) {
+    } else if (request.body.chat_completion_source === CHAT_COMPLETION_SOURCES.XAI) {
         apiUrl = new URL(request.body.reverse_proxy || API_XAI);
-        apiKey = request.body.reverse_proxy
-            ? request.body.proxy_password
-            : readSecret(request.user.directories, SECRET_KEYS.XAI);
+        apiKey = request.body.reverse_proxy ? request.body.proxy_password : readSecret(request.user.directories, SECRET_KEYS.XAI);
         headers = {};
-    } else if (
-        request.body.chat_completion_source === CHAT_COMPLETION_SOURCES.AIMLAPI
-    ) {
+    } else if (request.body.chat_completion_source === CHAT_COMPLETION_SOURCES.AIMLAPI) {
         apiUrl = API_AIMLAPI;
         apiKey = readSecret(request.user.directories, SECRET_KEYS.AIMLAPI);
         headers = { ...AIMLAPI_HEADERS };
-    } else if (
-        request.body.chat_completion_source ===
-        CHAT_COMPLETION_SOURCES.POLLINATIONS
-    ) {
-        apiUrl = "https://text.pollinations.ai";
-        apiKey = "NONE";
+    } else if (request.body.chat_completion_source === CHAT_COMPLETION_SOURCES.POLLINATIONS) {
+        apiUrl = 'https://text.pollinations.ai';
+        apiKey = 'NONE';
         headers = {};
-    } else if (
-        request.body.chat_completion_source === CHAT_COMPLETION_SOURCES.GROQ
-    ) {
+    } else if (request.body.chat_completion_source === CHAT_COMPLETION_SOURCES.GROQ) {
         apiUrl = API_GROQ;
         apiKey = readSecret(request.user.directories, SECRET_KEYS.GROQ);
         headers = {};
-    } else if (
-        request.body.chat_completion_source === CHAT_COMPLETION_SOURCES.COMETAPI
-    ) {
+    } else if (request.body.chat_completion_source === CHAT_COMPLETION_SOURCES.COMETAPI) {
         apiUrl = API_COMETAPI;
         apiKey = readSecret(request.user.directories, SECRET_KEYS.COMETAPI);
         headers = {};
-        throw new Error("This provider is temporarily disabled.");
-    } else if (
-        request.body.chat_completion_source === CHAT_COMPLETION_SOURCES.MOONSHOT
-    ) {
+    } else if (request.body.chat_completion_source === CHAT_COMPLETION_SOURCES.MOONSHOT) {
         apiUrl = API_MOONSHOT;
         apiKey = readSecret(request.user.directories, SECRET_KEYS.MOONSHOT);
         headers = {};
-    } else if (
-        request.body.chat_completion_source ===
-        CHAT_COMPLETION_SOURCES.FIREWORKS
-    ) {
+    } else if (request.body.chat_completion_source === CHAT_COMPLETION_SOURCES.FIREWORKS) {
         apiUrl = API_FIREWORKS;
         apiKey = readSecret(request.user.directories, SECRET_KEYS.FIREWORKS);
         headers = {};
-    } else if (
-        request.body.chat_completion_source ===
-        CHAT_COMPLETION_SOURCES.MAKERSUITE
-    ) {
-        apiKey = request.body.reverse_proxy
-            ? request.body.proxy_password
-            : readSecret(request.user.directories, SECRET_KEYS.MAKERSUITE);
-        apiUrl = trimTrailingSlash(
-            request.body.reverse_proxy || API_MAKERSUITE
-        );
-        const apiVersion = getConfigValue("gemini.apiVersion", "v1beta");
-        const modelsUrl =
-            !apiKey && request.body.reverse_proxy
-                ? `${apiUrl}/${apiVersion}/models`
-                : `${apiUrl}/${apiVersion}/models?key=${apiKey}`;
+    } else if (request.body.chat_completion_source === CHAT_COMPLETION_SOURCES.MAKERSUITE) {
+        apiKey = request.body.reverse_proxy ? request.body.proxy_password : readSecret(request.user.directories, SECRET_KEYS.MAKERSUITE);
+        apiUrl = trimTrailingSlash(request.body.reverse_proxy || API_MAKERSUITE);
+        const apiVersion = getConfigValue('gemini.apiVersion', 'v1beta');
+        const modelsUrl = !apiKey && request.body.reverse_proxy
+            ? `${apiUrl}/${apiVersion}/models`
+            : `${apiUrl}/${apiVersion}/models?key=${apiKey}`;
 
         if (!apiKey && !request.body.reverse_proxy) {
-            console.warn("Google AI Studio API key is missing.");
+            console.warn('Google AI Studio API key is missing.');
             return statusResponse.status(400).send({ error: true });
         }
 
@@ -1608,61 +1281,37 @@ router.post("/status", async function (request, statusResponse) {
                 /** @type {any} */
                 const data = await response.json();
                 // Transform Google AI Studio models to OpenAI format
-                const models =
-                    data.models
-                        ?.filter((model) =>
-                            model.supportedGenerationMethods?.includes(
-                                "generateContent"
-                            )
-                        )
-                        ?.map((model) => ({
-                            id: model.name.replace("models/", ""),
-                        })) || [];
+                const models = data.models
+                    ?.filter(model => model.supportedGenerationMethods?.includes('generateContent'))
+                    ?.map(model => ({
+                        id: model.name.replace('models/', ''),
+                    })) || [];
 
-                console.info(
-                    "Available Google AI Studio models:",
-                    models.map((m) => m.id)
-                );
+                console.info('Available Google AI Studio models:', models.map(m => m.id));
                 return statusResponse.send({ data: models });
             } else {
-                console.warn(
-                    "Google AI Studio models endpoint failed:",
-                    response.status,
-                    response.statusText
-                );
-                return statusResponse.send({
-                    error: true,
-                    bypass: true,
-                    data: { data: [] },
-                });
+                console.warn('Google AI Studio models endpoint failed:', response.status, response.statusText);
+                return statusResponse.send({ error: true, bypass: true, data: { data: [] } });
             }
         } catch (error) {
-            console.error("Error fetching Google AI Studio models:", error);
-            return statusResponse.send({
-                error: true,
-                bypass: true,
-                data: { data: [] },
-            });
+            console.error('Error fetching Google AI Studio models:', error);
+            return statusResponse.send({ error: true, bypass: true, data: { data: [] } });
         }
     } else {
-        console.warn("This chat completion source is not supported yet.");
+        console.warn('This chat completion source is not supported yet.');
         return statusResponse.status(400).send({ error: true });
     }
 
-    if (
-        !apiKey &&
-        !request.body.reverse_proxy &&
-        request.body.chat_completion_source !== CHAT_COMPLETION_SOURCES.CUSTOM
-    ) {
-        console.warn("Chat Completion API key is missing.");
+    if (!apiKey && !request.body.reverse_proxy && request.body.chat_completion_source !== CHAT_COMPLETION_SOURCES.CUSTOM) {
+        console.warn('Chat Completion API key is missing.');
         return statusResponse.status(400).send({ error: true });
     }
 
     try {
-        const response = await fetch(apiUrl + "/models", {
-            method: "GET",
+        const response = await fetch(apiUrl + '/models', {
+            method: 'GET',
             headers: {
-                Authorization: "Bearer " + apiKey,
+                'Authorization': 'Bearer ' + apiKey,
                 ...headers,
             },
         });
@@ -1671,76 +1320,46 @@ router.post("/status", async function (request, statusResponse) {
             /** @type {any} */
             let data = await response.json();
 
-            if (
-                request.body.chat_completion_source ===
-                    CHAT_COMPLETION_SOURCES.POLLINATIONS &&
-                Array.isArray(data)
-            ) {
-                data = {
-                    data: data.map((model) => ({ id: model.name, ...model })),
-                };
+            if (request.body.chat_completion_source === CHAT_COMPLETION_SOURCES.POLLINATIONS && Array.isArray(data)) {
+                data = { data: data.map(model => ({ id: model.name, ...model })) };
             }
 
             statusResponse.send(data);
 
-            if (
-                request.body.chat_completion_source ===
-                    CHAT_COMPLETION_SOURCES.COHERE &&
-                Array.isArray(data?.models)
-            ) {
-                data.data = data.models.map((model) => ({
-                    id: model.name,
-                    ...model,
-                }));
+            if (request.body.chat_completion_source === CHAT_COMPLETION_SOURCES.COHERE && Array.isArray(data?.models)) {
+                data.data = data.models.map(model => ({ id: model.name, ...model }));
             }
 
-            if (
-                request.body.chat_completion_source ===
-                    CHAT_COMPLETION_SOURCES.OPENROUTER &&
-                Array.isArray(data?.data)
-            ) {
+            if (request.body.chat_completion_source === CHAT_COMPLETION_SOURCES.OPENROUTER && Array.isArray(data?.data)) {
                 let models = [];
 
-                data.data.forEach((model) => {
+                data.data.forEach(model => {
                     const context_length = model.context_length;
-                    const tokens_dollar = Number(
-                        1 / (1000 * model.pricing?.prompt)
-                    );
-                    const tokens_rounded = (
-                        Math.round(tokens_dollar * 1000) / 1000
-                    ).toFixed(0);
+                    const tokens_dollar = Number(1 / (1000 * model.pricing?.prompt));
+                    const tokens_rounded = (Math.round(tokens_dollar * 1000) / 1000).toFixed(0);
                     models[model.id] = {
-                        tokens_per_dollar: tokens_rounded + "k",
+                        tokens_per_dollar: tokens_rounded + 'k',
                         context_length: context_length,
                     };
                 });
 
-                console.info("Available OpenRouter models:", models);
-            } else if (
-                request.body.chat_completion_source ===
-                CHAT_COMPLETION_SOURCES.MISTRALAI
-            ) {
+                console.info('Available OpenRouter models:', models);
+            } else if (request.body.chat_completion_source === CHAT_COMPLETION_SOURCES.MISTRALAI) {
                 const models = data?.data;
                 console.info(models);
             } else {
                 const models = data?.data;
 
                 if (Array.isArray(models)) {
-                    const modelIds = models
-                        .filter((x) => x && typeof x === "object")
-                        .map((x) => x.id)
-                        .sort();
-                    console.info("Available models:", modelIds);
+                    const modelIds = models.filter(x => x && typeof x === 'object').map(x => x.id).sort();
+                    console.info('Available models:', modelIds);
                 } else {
-                    console.warn(
-                        "Chat Completion endpoint did not return a list of models."
-                    );
+                    console.warn('Chat Completion endpoint did not return a list of models.');
                 }
             }
-        } else {
-            console.error(
-                "Chat Completion status check failed. Either Access Token is incorrect or API endpoint is down."
-            );
+        }
+        else {
+            console.error('Chat Completion status check failed. Either Access Token is incorrect or API endpoint is down.');
             statusResponse.send({ error: true, data: { data: [] } });
         }
     } catch (e) {
@@ -1754,16 +1373,16 @@ router.post("/status", async function (request, statusResponse) {
     }
 });
 
-router.post("/bias", async function (request, response) {
+router.post('/bias', async function (request, response) {
     if (!request.body || !Array.isArray(request.body))
         return response.sendStatus(400);
 
     try {
         const result = {};
-        const model = getTokenizerModel(String(request.query.model || ""));
+        const model = getTokenizerModel(String(request.query.model || ''));
 
         // no bias for claude
-        if (model == "claude") {
+        if (model == 'claude') {
             return response.send(result);
         }
 
@@ -1773,22 +1392,21 @@ router.post("/bias", async function (request, response) {
             const tokenizer = getSentencepiceTokenizer(model);
             const instance = await tokenizer?.get();
             if (!instance) {
-                console.error("Tokenizer not initialized:", model);
+                console.error('Tokenizer not initialized:', model);
                 return response.send({});
             }
-            encodeFunction = (text) =>
-                new Uint32Array(instance.encodeIds(text));
+            encodeFunction = (text) => new Uint32Array(instance.encodeIds(text));
         } else if (webTokenizers.includes(model)) {
             const tokenizer = getWebTokenizer(model);
             const instance = await tokenizer?.get();
             if (!instance) {
-                console.warn("Tokenizer not initialized:", model);
+                console.warn('Tokenizer not initialized:', model);
                 return response.send({});
             }
             encodeFunction = (text) => new Uint32Array(instance.encode(text));
         } else {
             const tokenizer = getTiktokenTokenizer(model);
-            encodeFunction = tokenizer.encode.bind(tokenizer);
+            encodeFunction = (tokenizer.encode.bind(tokenizer));
         }
 
         for (const entry of request.body) {
@@ -1803,7 +1421,7 @@ router.post("/bias", async function (request, response) {
                     result[token] = entry.value;
                 }
             } catch {
-                console.warn("Tokenizer failed to encode:", entry.text);
+                console.warn('Tokenizer failed to encode:', entry.text);
             }
         }
 
@@ -1819,13 +1437,10 @@ router.post("/bias", async function (request, response) {
          */
         function getEntryTokens(text, encode) {
             // Get raw token ids from JSON array
-            if (text.trim().startsWith("[") && text.trim().endsWith("]")) {
+            if (text.trim().startsWith('[') && text.trim().endsWith(']')) {
                 try {
                     const json = JSON.parse(text);
-                    if (
-                        Array.isArray(json) &&
-                        json.every((x) => typeof x === "number")
-                    ) {
+                    if (Array.isArray(json) && json.every(x => typeof x === 'number')) {
                         return new Uint32Array(json);
                     }
                 } catch {
@@ -1842,67 +1457,44 @@ router.post("/bias", async function (request, response) {
     }
 });
 
-router.post("/generate", function (request, response) {
+
+router.post('/generate', function (request, response) {
     if (!request.body) return response.status(400).send({ error: true });
 
     const postProcessingType = request.body.custom_prompt_post_processing;
     if (Array.isArray(request.body.messages) && postProcessingType) {
-        console.info(
-            "Applying custom prompt post-processing of type",
-            postProcessingType
-        );
+        console.info('Applying custom prompt post-processing of type', postProcessingType);
         request.body.messages = postProcessPrompt(
             request.body.messages,
             postProcessingType,
-            getPromptNames(request)
-        );
+            getPromptNames(request));
     }
 
     if (request.body.json_schema?.value) {
-        request.body.json_schema.value = flattenSchema(
-            request.body.json_schema.value,
-            request.body.chat_completion_source
-        );
+        request.body.json_schema.value = flattenSchema(request.body.json_schema.value, request.body.chat_completion_source);
     }
 
     switch (request.body.chat_completion_source) {
-        case CHAT_COMPLETION_SOURCES.CLAUDE:
-            return sendClaudeRequest(request, response);
-        case CHAT_COMPLETION_SOURCES.AI21:
-            return sendAI21Request(request, response);
-        case CHAT_COMPLETION_SOURCES.MAKERSUITE:
-            return sendMakerSuiteRequest(request, response);
-        case CHAT_COMPLETION_SOURCES.VERTEXAI:
-            return sendMakerSuiteRequest(request, response);
-        case CHAT_COMPLETION_SOURCES.MISTRALAI:
-            return sendMistralAIRequest(request, response);
-        case CHAT_COMPLETION_SOURCES.COHERE:
-            return sendCohereRequest(request, response);
-        case CHAT_COMPLETION_SOURCES.DEEPSEEK:
-            return sendDeepSeekRequest(request, response);
-        case CHAT_COMPLETION_SOURCES.AIMLAPI:
-            return sendAimlapiRequest(request, response);
-        case CHAT_COMPLETION_SOURCES.XAI:
-            return sendXaiRequest(request, response);
+        case CHAT_COMPLETION_SOURCES.CLAUDE: return sendClaudeRequest(request, response);
+        case CHAT_COMPLETION_SOURCES.AI21: return sendAI21Request(request, response);
+        case CHAT_COMPLETION_SOURCES.MAKERSUITE: return sendMakerSuiteRequest(request, response);
+        case CHAT_COMPLETION_SOURCES.VERTEXAI: return sendMakerSuiteRequest(request, response);
+        case CHAT_COMPLETION_SOURCES.MISTRALAI: return sendMistralAIRequest(request, response);
+        case CHAT_COMPLETION_SOURCES.COHERE: return sendCohereRequest(request, response);
+        case CHAT_COMPLETION_SOURCES.DEEPSEEK: return sendDeepSeekRequest(request, response);
+        case CHAT_COMPLETION_SOURCES.AIMLAPI: return sendAimlapiRequest(request, response);
+        case CHAT_COMPLETION_SOURCES.XAI: return sendXaiRequest(request, response);
     }
 
     let apiUrl;
     let apiKey;
     let headers;
     let bodyParams;
-    const isTextCompletion =
-        Boolean(
-            request.body.model &&
-                TEXT_COMPLETION_MODELS.includes(request.body.model)
-        ) || typeof request.body.messages === "string";
+    const isTextCompletion = Boolean(request.body.model && TEXT_COMPLETION_MODELS.includes(request.body.model)) || typeof request.body.messages === 'string';
 
-    if (
-        request.body.chat_completion_source === CHAT_COMPLETION_SOURCES.OPENAI
-    ) {
+    if (request.body.chat_completion_source === CHAT_COMPLETION_SOURCES.OPENAI) {
         apiUrl = new URL(request.body.reverse_proxy || API_OPENAI).toString();
-        apiKey = request.body.reverse_proxy
-            ? request.body.proxy_password
-            : readSecret(request.user.directories, SECRET_KEYS.OPENAI);
+        apiKey = request.body.reverse_proxy ? request.body.proxy_password : readSecret(request.user.directories, SECRET_KEYS.OPENAI);
         headers = {};
         bodyParams = {
             logprobs: request.body.logprobs,
@@ -1915,56 +1507,50 @@ router.post("/generate", function (request, response) {
             bodyParams.logprobs = true;
         }
 
-        if (getConfigValue("openai.randomizeUserId", false, "boolean")) {
-            bodyParams["user"] = uuidv4();
+        if (getConfigValue('openai.randomizeUserId', false, 'boolean')) {
+            bodyParams['user'] = uuidv4();
         }
-    } else if (
-        request.body.chat_completion_source ===
-        CHAT_COMPLETION_SOURCES.OPENROUTER
-    ) {
-        apiUrl = "https://openrouter.ai/api/v1";
+    } else if (request.body.chat_completion_source === CHAT_COMPLETION_SOURCES.OPENROUTER) {
+        apiUrl = 'https://openrouter.ai/api/v1';
         apiKey = readSecret(request.user.directories, SECRET_KEYS.OPENROUTER);
         // OpenRouter needs to pass the Referer and X-Title: https://openrouter.ai/docs#requests
         headers = { ...OPENROUTER_HEADERS };
         bodyParams = {
-            transforms: getOpenRouterTransforms(request),
-            plugins: getOpenRouterPlugins(request),
-            include_reasoning: Boolean(request.body.include_reasoning),
+            'transforms': getOpenRouterTransforms(request),
+            'plugins': getOpenRouterPlugins(request),
+            'include_reasoning': Boolean(request.body.include_reasoning),
         };
 
         if (request.body.min_p !== undefined) {
-            bodyParams["min_p"] = request.body.min_p;
+            bodyParams['min_p'] = request.body.min_p;
         }
 
         if (request.body.top_a !== undefined) {
-            bodyParams["top_a"] = request.body.top_a;
+            bodyParams['top_a'] = request.body.top_a;
         }
 
         if (request.body.repetition_penalty !== undefined) {
-            bodyParams["repetition_penalty"] = request.body.repetition_penalty;
+            bodyParams['repetition_penalty'] = request.body.repetition_penalty;
         }
 
-        if (
-            Array.isArray(request.body.provider) &&
-            request.body.provider.length > 0
-        ) {
-            bodyParams["provider"] = {
+        if (Array.isArray(request.body.provider) && request.body.provider.length > 0) {
+            bodyParams['provider'] = {
                 allow_fallbacks: request.body.allow_fallbacks ?? true,
                 order: request.body.provider ?? [],
             };
         }
 
         if (request.body.use_fallback) {
-            bodyParams["route"] = "fallback";
+            bodyParams['route'] = 'fallback';
         }
 
         if (request.body.reasoning_effort) {
-            bodyParams["reasoning"] = { effort: request.body.reasoning_effort };
+            bodyParams['reasoning'] = { effort: request.body.reasoning_effort };
         }
 
         if (request.body.json_schema) {
-            bodyParams["response_format"] = {
-                type: "json_schema",
+            bodyParams['response_format'] = {
+                type: 'json_schema',
                 json_schema: {
                     name: request.body.json_schema.name,
                     strict: request.body.json_schema.strict ?? true,
@@ -1973,36 +1559,18 @@ router.post("/generate", function (request, response) {
             };
         }
 
-        const cachingAtDepth = getConfigValue(
-            "claude.cachingAtDepth",
-            -1,
-            "number"
-        );
-        const isClaude3or4 = /anthropic\/claude-(3|opus-4|sonnet-4)/.test(
-            request.body.model
-        );
-        const cacheTTL = getConfigValue("claude.extendedTTL", false, "boolean")
-            ? "1h"
-            : "5m";
-        if (
-            Number.isInteger(cachingAtDepth) &&
-            cachingAtDepth >= 0 &&
-            isClaude3or4
-        ) {
-            cachingAtDepthForOpenRouterClaude(
-                request.body.messages,
-                cachingAtDepth,
-                cacheTTL
-            );
+        const cachingAtDepth = getConfigValue('claude.cachingAtDepth', -1, 'number');
+        const isClaude3or4 = /anthropic\/claude-(3|opus-4|sonnet-4)/.test(request.body.model);
+        const cacheTTL = getConfigValue('claude.extendedTTL', false, 'boolean') ? '1h' : '5m';
+        if (Number.isInteger(cachingAtDepth) && cachingAtDepth >= 0 && isClaude3or4) {
+            cachingAtDepthForOpenRouterClaude(request.body.messages, cachingAtDepth, cacheTTL);
         }
 
         const isGemini = /google\/gemini/.test(request.body.model);
         if (isGemini) {
-            bodyParams["safety_settings"] = GEMINI_SAFETY;
+            bodyParams['safety_settings'] = GEMINI_SAFETY;
         }
-    } else if (
-        request.body.chat_completion_source === CHAT_COMPLETION_SOURCES.CUSTOM
-    ) {
+    } else if (request.body.chat_completion_source === CHAT_COMPLETION_SOURCES.CUSTOM) {
         apiUrl = request.body.custom_url;
         apiKey = readSecret(request.user.directories, SECRET_KEYS.CUSTOM);
         headers = {};
@@ -2019,39 +1587,30 @@ router.post("/generate", function (request, response) {
 
         mergeObjectWithYaml(bodyParams, request.body.custom_include_body);
         mergeObjectWithYaml(headers, request.body.custom_include_headers);
-    } else if (
-        request.body.chat_completion_source ===
-        CHAT_COMPLETION_SOURCES.PERPLEXITY
-    ) {
+    } else if (request.body.chat_completion_source === CHAT_COMPLETION_SOURCES.PERPLEXITY) {
         apiUrl = API_PERPLEXITY;
         apiKey = readSecret(request.user.directories, SECRET_KEYS.PERPLEXITY);
         headers = {};
         bodyParams = {
             reasoning_effort: request.body.reasoning_effort,
         };
-        request.body.messages = postProcessPrompt(
-            request.body.messages,
-            PROMPT_PROCESSING_TYPE.STRICT,
-            getPromptNames(request)
-        );
+        request.body.messages = postProcessPrompt(request.body.messages, PROMPT_PROCESSING_TYPE.STRICT, getPromptNames(request));
         if (request.body.json_schema) {
-            bodyParams["response_format"] = {
-                type: "json_schema",
+            bodyParams['response_format'] = {
+                type: 'json_schema',
                 json_schema: {
                     schema: request.body.json_schema.value,
                 },
             };
         }
-    } else if (
-        request.body.chat_completion_source === CHAT_COMPLETION_SOURCES.GROQ
-    ) {
+    } else if (request.body.chat_completion_source === CHAT_COMPLETION_SOURCES.GROQ) {
         apiUrl = API_GROQ;
         apiKey = readSecret(request.user.directories, SECRET_KEYS.GROQ);
         headers = {};
         bodyParams = {};
         if (request.body.json_schema) {
-            bodyParams["response_format"] = {
-                type: "json_schema",
+            bodyParams['response_format'] = {
+                type: 'json_schema',
                 json_schema: {
                     name: request.body.json_schema.name,
                     description: request.body.json_schema.description,
@@ -2060,17 +1619,14 @@ router.post("/generate", function (request, response) {
                 },
             };
         }
-    } else if (
-        request.body.chat_completion_source ===
-        CHAT_COMPLETION_SOURCES.FIREWORKS
-    ) {
+    } else if (request.body.chat_completion_source === CHAT_COMPLETION_SOURCES.FIREWORKS) {
         apiUrl = API_FIREWORKS;
         apiKey = readSecret(request.user.directories, SECRET_KEYS.FIREWORKS);
         headers = {};
         bodyParams = {};
         if (request.body.json_schema) {
-            bodyParams["response_format"] = {
-                type: "json_schema",
+            bodyParams['response_format'] = {
+                type: 'json_schema',
                 json_schema: {
                     name: request.body.json_schema.name,
                     description: request.body.json_schema.description,
@@ -2079,145 +1635,103 @@ router.post("/generate", function (request, response) {
                 },
             };
         }
-    } else if (
-        request.body.chat_completion_source === CHAT_COMPLETION_SOURCES.NANOGPT
-    ) {
+    } else if (request.body.chat_completion_source === CHAT_COMPLETION_SOURCES.NANOGPT) {
         apiUrl = API_NANOGPT;
         apiKey = readSecret(request.user.directories, SECRET_KEYS.NANOGPT);
         headers = {};
         bodyParams = {};
-        if (
-            request.body.enable_web_search &&
-            !/:online$/.test(request.body.model)
-        ) {
+        if (request.body.enable_web_search && !/:online$/.test(request.body.model)) {
             request.body.model = `${request.body.model}:online`;
         }
-    } else if (
-        request.body.chat_completion_source ===
-        CHAT_COMPLETION_SOURCES.POLLINATIONS
-    ) {
+    } else if (request.body.chat_completion_source === CHAT_COMPLETION_SOURCES.POLLINATIONS) {
         apiUrl = API_POLLINATIONS;
-        apiKey = "NONE";
+        apiKey = 'NONE';
         headers = {
-            Authorization: "",
+            'Authorization': '',
         };
         bodyParams = {
             reasoning_effort: request.body.reasoning_effort,
             private: true,
-            referrer: "sillytavern",
+            referrer: 'sillytavern',
             seed: request.body.seed ?? Math.floor(Math.random() * 99999999),
         };
         if (request.body.json_schema) {
-            setJsonObjectFormat(
-                bodyParams,
-                request.body.messages,
-                request.body.json_schema
-            );
+            setJsonObjectFormat(bodyParams, request.body.messages, request.body.json_schema);
         }
-    } else if (
-        request.body.chat_completion_source === CHAT_COMPLETION_SOURCES.MOONSHOT
-    ) {
+    } else if (request.body.chat_completion_source === CHAT_COMPLETION_SOURCES.MOONSHOT) {
         apiUrl = API_MOONSHOT;
         apiKey = readSecret(request.user.directories, SECRET_KEYS.MOONSHOT);
         headers = {};
         bodyParams = {};
         request.body.json_schema
-            ? setJsonObjectFormat(
-                  bodyParams,
-                  request.body.messages,
-                  request.body.json_schema
-              )
-            : addAssistantPrefix(request.body.messages, [], "partial");
-    } else if (
-        request.body.chat_completion_source === CHAT_COMPLETION_SOURCES.COMETAPI
-    ) {
+            ? setJsonObjectFormat(bodyParams, request.body.messages, request.body.json_schema)
+            : addAssistantPrefix(request.body.messages, [], 'partial');
+    } else if (request.body.chat_completion_source === CHAT_COMPLETION_SOURCES.COMETAPI) {
         apiUrl = API_COMETAPI;
         apiKey = readSecret(request.user.directories, SECRET_KEYS.COMETAPI);
         headers = {};
         bodyParams = {
             reasoning_effort: request.body.reasoning_effort,
         };
-        throw new Error("This provider is temporarily disabled.");
     } else {
-        console.warn("This chat completion source is not supported yet.");
+        console.warn('This chat completion source is not supported yet.');
         return response.status(400).send({ error: true });
     }
 
     // A few of OpenAIs reasoning models support reasoning effort
-    if (
-        request.body.reasoning_effort &&
-        [
-            CHAT_COMPLETION_SOURCES.CUSTOM,
-            CHAT_COMPLETION_SOURCES.OPENAI,
-        ].includes(request.body.chat_completion_source)
-    ) {
+    if (request.body.reasoning_effort && [CHAT_COMPLETION_SOURCES.CUSTOM, CHAT_COMPLETION_SOURCES.OPENAI].includes(request.body.chat_completion_source)) {
         const reasoningEffortModels = [
-            "o1",
-            "o3-mini",
-            "o3-mini-2025-01-31",
-            "o4-mini",
-            "o4-mini-2025-04-16",
-            "o3",
-            "o3-2025-04-16",
-            "gpt-5",
-            "gpt-5-2025-08-07",
-            "gpt-5-mini",
-            "gpt-5-mini-2025-08-07",
-            "gpt-5-nano",
-            "gpt-5-nano-2025-08-07",
+            'o1',
+            'o3-mini',
+            'o3-mini-2025-01-31',
+            'o4-mini',
+            'o4-mini-2025-04-16',
+            'o3',
+            'o3-2025-04-16',
+            'gpt-5',
+            'gpt-5-2025-08-07',
+            'gpt-5-mini',
+            'gpt-5-mini-2025-08-07',
+            'gpt-5-nano',
+            'gpt-5-nano-2025-08-07',
         ];
         const reasoningEffortMap = {
-            min: "minimal",
+            min: 'minimal',
         };
         if (reasoningEffortModels.includes(request.body.model)) {
-            bodyParams["reasoning_effort"] =
-                reasoningEffortMap[request.body.reasoning_effort] ??
-                request.body.reasoning_effort;
+            bodyParams['reasoning_effort'] = reasoningEffortMap[request.body.reasoning_effort] ?? request.body.reasoning_effort;
         }
     }
 
-    if (
-        !apiKey &&
-        !request.body.reverse_proxy &&
-        request.body.chat_completion_source !== CHAT_COMPLETION_SOURCES.CUSTOM
-    ) {
-        console.warn("OpenAI API key is missing.");
+    if (!apiKey && !request.body.reverse_proxy && request.body.chat_completion_source !== CHAT_COMPLETION_SOURCES.CUSTOM) {
+        console.warn('OpenAI API key is missing.');
         return response.status(400).send({ error: true });
     }
 
     // Add custom stop sequences
     if (Array.isArray(request.body.stop) && request.body.stop.length > 0) {
-        bodyParams["stop"] = request.body.stop;
+        bodyParams['stop'] = request.body.stop;
     }
 
-    const textPrompt = isTextCompletion
-        ? convertTextCompletionPrompt(request.body.messages)
-        : "";
-    const endpointUrl =
-        isTextCompletion &&
-        request.body.chat_completion_source !==
-            CHAT_COMPLETION_SOURCES.OPENROUTER
-            ? `${apiUrl}/completions`
-            : `${apiUrl}/chat/completions`;
+    const textPrompt = isTextCompletion ? convertTextCompletionPrompt(request.body.messages) : '';
+    const endpointUrl = isTextCompletion && request.body.chat_completion_source !== CHAT_COMPLETION_SOURCES.OPENROUTER ?
+        `${apiUrl}/completions` :
+        `${apiUrl}/chat/completions`;
 
     const controller = new AbortController();
-    request.socket.removeAllListeners("close");
-    request.socket.on("close", function () {
+    request.socket.removeAllListeners('close');
+    request.socket.on('close', function () {
         controller.abort();
     });
 
-    if (
-        !isTextCompletion &&
-        Array.isArray(request.body.tools) &&
-        request.body.tools.length > 0
-    ) {
-        bodyParams["tools"] = request.body.tools;
-        bodyParams["tool_choice"] = request.body.tool_choice;
+    if (!isTextCompletion && Array.isArray(request.body.tools) && request.body.tools.length > 0) {
+        bodyParams['tools'] = request.body.tools;
+        bodyParams['tool_choice'] = request.body.tool_choice;
     }
 
-    if (request.body.json_schema && !bodyParams["response_format"]) {
-        bodyParams["response_format"] = {
-            type: "json_schema",
+    if (request.body.json_schema && !bodyParams['response_format']) {
+        bodyParams['response_format'] = {
+            type: 'json_schema',
             json_schema: {
                 name: request.body.json_schema.name,
                 strict: request.body.json_schema.strict ?? true,
@@ -2227,54 +1741,41 @@ router.post("/generate", function (request, response) {
     }
 
     const requestBody = {
-        messages:
-            isTextCompletion === false ? request.body.messages : undefined,
-        prompt: isTextCompletion === true ? textPrompt : undefined,
-        model: request.body.model,
-        temperature: request.body.temperature,
-        max_tokens: request.body.max_tokens,
-        max_completion_tokens: request.body.max_completion_tokens,
-        stream: request.body.stream,
-        presence_penalty: request.body.presence_penalty,
-        frequency_penalty: request.body.frequency_penalty,
-        top_p: request.body.top_p,
-        top_k: request.body.top_k,
-        stop: isTextCompletion === false ? request.body.stop : undefined,
-        logit_bias: request.body.logit_bias,
-        seed: request.body.seed,
-        n: request.body.n,
+        'messages': isTextCompletion === false ? request.body.messages : undefined,
+        'prompt': isTextCompletion === true ? textPrompt : undefined,
+        'model': request.body.model,
+        'temperature': request.body.temperature,
+        'max_tokens': request.body.max_tokens,
+        'max_completion_tokens': request.body.max_completion_tokens,
+        'stream': request.body.stream,
+        'presence_penalty': request.body.presence_penalty,
+        'frequency_penalty': request.body.frequency_penalty,
+        'top_p': request.body.top_p,
+        'top_k': request.body.top_k,
+        'stop': isTextCompletion === false ? request.body.stop : undefined,
+        'logit_bias': request.body.logit_bias,
+        'seed': request.body.seed,
+        'n': request.body.n,
         ...bodyParams,
     };
 
-    if (
-        request.body.chat_completion_source === CHAT_COMPLETION_SOURCES.CUSTOM
-    ) {
+    if (request.body.chat_completion_source === CHAT_COMPLETION_SOURCES.CUSTOM) {
         excludeKeysByYaml(requestBody, request.body.custom_exclude_body);
     }
-    // console.log(requestBody.messages, '------======1111111ccccc')
-    fs.promises
-        .writeFile(
-            "openai-request-messages.json",
-            JSON.stringify(requestBody.messages, null, 2),
-            "utf8"
-        )
-        .catch((error) => {
-            console.warn("Failed to write openai-request-messages.json", error);
-        });
 
     /** @type {import('node-fetch').RequestInit} */
     const config = {
-        method: "post",
+        method: 'post',
         headers: {
-            "Content-Type": "application/json",
-            Authorization: "Bearer " + apiKey,
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + apiKey,
             ...headers,
         },
         body: JSON.stringify(requestBody),
         signal: controller.signal,
     };
 
-    // console.debug(requestBody);
+    console.debug(requestBody);
 
     makeRequest(config, response, request);
 
@@ -2286,19 +1787,13 @@ router.post("/generate", function (request, response) {
      * @param {Number} retries Number of retries left
      * @param {Number} timeout Request timeout in ms
      */
-    async function makeRequest(
-        config,
-        response,
-        request,
-        retries = 5,
-        timeout = 5000
-    ) {
+    async function makeRequest(config, response, request, retries = 5, timeout = 5000) {
         try {
             controller.signal.throwIfAborted();
             const fetchResponse = await fetch(endpointUrl, config);
 
             if (request.body.stream) {
-                console.info("Streaming request in progress");
+                console.info('Streaming request in progress');
                 forwardFetchResponse(fetchResponse, response);
                 return;
             }
@@ -2310,28 +1805,19 @@ router.post("/generate", function (request, response) {
                 console.debug(json);
                 console.debug(json?.choices?.[0]?.message);
             } else if (fetchResponse.status === 429 && retries > 0) {
-                console.warn(
-                    `Out of quota, retrying in ${Math.round(timeout / 1000)}s`
-                );
+                console.warn(`Out of quota, retrying in ${Math.round(timeout / 1000)}s`);
                 setTimeout(() => {
                     timeout *= 2;
-                    makeRequest(
-                        config,
-                        response,
-                        request,
-                        retries - 1,
-                        timeout
-                    );
+                    makeRequest(config, response, request, retries - 1, timeout);
                 }, timeout);
             } else {
                 await handleErrorResponse(fetchResponse);
             }
         } catch (error) {
-            console.error("Generation failed", error);
-            const message =
-                error.code === "ECONNREFUSED"
-                    ? `Connection refused: ${error.message}`
-                    : error.message || "Unknown error occurred";
+            console.error('Generation failed', error);
+            const message = error.code === 'ECONNREFUSED'
+                ? `Connection refused: ${error.message}`
+                : error.message || 'Unknown error occurred';
 
             if (!response.headersSent) {
                 response.status(502).send({ error: { message, ...error } });
@@ -2348,11 +1834,9 @@ router.post("/generate", function (request, response) {
         const responseText = await errorResponse.text();
         const errorData = tryParse(responseText);
 
-        const message = errorResponse.statusText || "Unknown error occurred";
-        const quota_error =
-            errorResponse.status === 429 &&
-            errorData?.error?.type === "insufficient_quota";
-        console.error("Chat completion request error: ", message, responseText);
+        const message = errorResponse.statusText || 'Unknown error occurred';
+        const quota_error = errorResponse.status === 429 && errorData?.error?.type === 'insufficient_quota';
+        console.error('Chat completion request error: ', message, responseText);
 
         if (!response.headersSent) {
             response.send({ error: { message }, quota_error: quota_error });
@@ -2366,9 +1850,9 @@ router.post("/generate", function (request, response) {
 
 const pollinations = express.Router();
 
-pollinations.post("/models/multimodal", async (_req, res) => {
+pollinations.post('/models/multimodal', async (_req, res) => {
     try {
-        const response = await fetch("https://text.pollinations.ai/models");
+        const response = await fetch('https://text.pollinations.ai/models');
 
         if (!response.ok) {
             return res.json([]);
@@ -2381,9 +1865,7 @@ pollinations.post("/models/multimodal", async (_req, res) => {
             return res.json([]);
         }
 
-        const multimodalModels = data
-            .filter((m) => m?.vision)
-            .map((m) => m.name);
+        const multimodalModels = data.filter(m => m?.vision).map(m => m.name);
         return res.json(multimodalModels);
     } catch (error) {
         console.error(error);
@@ -2391,13 +1873,13 @@ pollinations.post("/models/multimodal", async (_req, res) => {
     }
 });
 
-router.use("/pollinations", pollinations);
+router.use('/pollinations', pollinations);
 
 const aimlapi = express.Router();
 
-aimlapi.post("/models/multimodal", async (_req, res) => {
+aimlapi.post('/models/multimodal', async (_req, res) => {
     try {
-        const response = await fetch("https://api.aimlapi.com/v1/models");
+        const response = await fetch('https://api.aimlapi.com/v1/models');
 
         if (!response.ok) {
             return res.json([]);
@@ -2410,11 +1892,7 @@ aimlapi.post("/models/multimodal", async (_req, res) => {
             return res.json([]);
         }
 
-        const multimodalModels = data.data
-            .filter((m) =>
-                m?.features?.includes("openai/chat-completion.vision")
-            )
-            .map((m) => m.id);
+        const multimodalModels = data.data.filter(m => m?.features?.includes('openai/chat-completion.vision')).map(m => m.id);
         return res.json(multimodalModels);
     } catch (error) {
         console.error(error);
@@ -2422,4 +1900,4 @@ aimlapi.post("/models/multimodal", async (_req, res) => {
     }
 });
 
-router.use("/aimlapi", aimlapi);
+router.use('/aimlapi', aimlapi);

@@ -1,9 +1,9 @@
-import sanitize from "sanitize-filename";
-import { promises as fsPromises } from "node:fs";
-import path from "node:path";
-import urlJoin from "url-join";
-import { DEFAULT_AVATAR_PATH } from "./constants.js";
-import { extractFileFromZipBuffer, humanizedISO8601DateTime } from "./util.js";
+import sanitize from 'sanitize-filename';
+import { promises as fsPromises } from 'node:fs';
+import path from 'node:path';
+import urlJoin from 'url-join';
+import { DEFAULT_AVATAR_PATH } from './constants.js';
+import { extractFileFromZipBuffer, humanizedISO8601DateTime } from './util.js';
 
 /**
  * A parser for BYAF (Backyard Archive Format) files.
@@ -29,11 +29,11 @@ export class ByafParser {
      * @private
      */
     replaceMacros(str) {
-        return String(str || "");
-        // .replace(/#{user}:/gi, '{{user}}:')
-        // .replace(/#{character}:/gi, '{{char}}:')
-        // .replace(/{character}(?!})/gi, '{{char}}')
-        // .replace(/{user}(?!})/gi, '{{user}}');
+        return String(str || '')
+            .replace(/#{user}:/gi, '{{user}}:')
+            .replace(/#{character}:/gi, '{{char}}:')
+            .replace(/{character}(?!})/gi, '{{char}}')
+            .replace(/{user}(?!})/gi, '{{user}}');
     }
 
     /**
@@ -44,18 +44,16 @@ export class ByafParser {
      */
     formatExampleMessages(examples) {
         if (!Array.isArray(examples)) {
-            return "";
+            return '';
         }
 
-        let formattedExamples = "";
+        let formattedExamples = '';
 
         examples.forEach((example) => {
             if (!example?.text) {
                 return;
             }
-            formattedExamples += `<START>\n${this.replaceMacros(
-                example.text
-            )}\n`;
+            formattedExamples += `<START>\n${this.replaceMacros(example.text)}\n`;
         });
 
         return formattedExamples.trimEnd();
@@ -77,7 +75,7 @@ export class ByafParser {
         }
 
         // Skip one because it goes into 'first_mes'
-        return greetings.slice(1).map((g) => this.replaceMacros(g?.text));
+        return greetings.slice(1).map(g => this.replaceMacros(g?.text));
     }
 
     /**
@@ -102,10 +100,7 @@ export class ByafParser {
                 return;
             }
             book.entries.push({
-                keys: this.replaceMacros(item?.key)
-                    .split(",")
-                    .map((key) => key.trim())
-                    .filter(Boolean),
+                keys: this.replaceMacros(item?.key).split(',').map(key => key.trim()).filter(Boolean),
                 content: this.replaceMacros(item?.value),
                 extensions: {},
                 enabled: true,
@@ -126,40 +121,33 @@ export class ByafParser {
         const charactersArray = manifest?.characters;
 
         if (!Array.isArray(charactersArray)) {
-            throw new Error("Invalid BYAF file: missing characters array");
+            throw new Error('Invalid BYAF file: missing characters array');
         }
 
         if (charactersArray.length === 0) {
-            throw new Error("Invalid BYAF file: characters array is empty");
+            throw new Error('Invalid BYAF file: characters array is empty');
         }
 
         if (charactersArray.length > 1) {
-            console.warn(
-                "Warning: BYAF manifest contains more than one character, only the first one will be imported"
-            );
+            console.warn('Warning: BYAF manifest contains more than one character, only the first one will be imported');
         }
 
         const characterPath = charactersArray[0];
         if (!characterPath) {
-            throw new Error("Invalid BYAF file: missing character path");
+            throw new Error('Invalid BYAF file: missing character path');
         }
 
-        const characterBuffer = await extractFileFromZipBuffer(
-            this.#data,
-            characterPath
-        );
+        const characterBuffer = await extractFileFromZipBuffer(this.#data, characterPath);
         if (!characterBuffer) {
-            throw new Error(
-                "Invalid BYAF file: failed to extract character JSON"
-            );
+            throw new Error('Invalid BYAF file: failed to extract character JSON');
         }
 
         try {
             const character = JSON.parse(characterBuffer.toString());
             return { character, characterPath };
         } catch (error) {
-            console.error("Failed to parse character JSON from BYAF:", error);
-            throw new Error("Invalid BYAF file: character is not a valid JSON");
+            console.error('Failed to parse character JSON from BYAF:', error);
+            throw new Error('Invalid BYAF file: character is not a valid JSON');
         }
     }
 
@@ -173,35 +161,30 @@ export class ByafParser {
         const scenariosArray = manifest?.scenarios;
 
         if (!Array.isArray(scenariosArray) || scenariosArray.length === 0) {
-            console.warn("Warning: BYAF manifest contains no scenarios");
+            console.warn('Warning: BYAF manifest contains no scenarios');
             return {};
         }
 
         if (scenariosArray.length > 1) {
-            console.warn(
-                "Warning: BYAF manifest contains more than one scenario, only the first one will be imported"
-            );
+            console.warn('Warning: BYAF manifest contains more than one scenario, only the first one will be imported');
         }
 
         const scenarioPath = scenariosArray[0];
         if (!scenarioPath) {
-            console.warn("Warning: missing BYAF scenario path");
+            console.warn('Warning: missing BYAF scenario path');
             return {};
         }
 
-        const scenarioBuffer = await extractFileFromZipBuffer(
-            this.#data,
-            scenarioPath
-        );
+        const scenarioBuffer = await extractFileFromZipBuffer(this.#data, scenarioPath);
         if (!scenarioBuffer) {
-            console.warn("Warning: failed to extract BYAF scenario JSON");
+            console.warn('Warning: failed to extract BYAF scenario JSON');
             return {};
         }
 
         try {
             return JSON.parse(scenarioBuffer.toString());
         } catch (error) {
-            console.warn("Warning: BYAF scenario is not a valid JSON", error);
+            console.warn('Warning: BYAF scenario is not a valid JSON', error);
             return {};
         }
     }
@@ -214,29 +197,24 @@ export class ByafParser {
      * @private
      */
     async getCharacterImage(character, characterPath) {
-        const defaultAvatarBuffer = await fsPromises.readFile(
-            DEFAULT_AVATAR_PATH
-        );
+        const defaultAvatarBuffer = await fsPromises.readFile(DEFAULT_AVATAR_PATH);
         const characterImages = character?.images;
 
         if (!Array.isArray(characterImages) || characterImages.length === 0) {
-            console.warn("Warning: BYAF character has no images");
+            console.warn('Warning: BYAF character has no images');
             return defaultAvatarBuffer;
         }
 
         const imagePath = characterImages[0]?.path;
         if (!imagePath) {
-            console.warn("Warning: BYAF character image path is empty");
+            console.warn('Warning: BYAF character image path is empty');
             return defaultAvatarBuffer;
         }
 
         const fullImagePath = urlJoin(path.dirname(characterPath), imagePath);
-        const imageBuffer = await extractFileFromZipBuffer(
-            this.#data,
-            fullImagePath
-        );
+        const imageBuffer = await extractFileFromZipBuffer(this.#data, fullImagePath);
         if (!imageBuffer) {
-            console.warn("Warning: failed to extract BYAF character image");
+            console.warn('Warning: failed to extract BYAF character image');
             return defaultAvatarBuffer;
         }
 
@@ -253,31 +231,23 @@ export class ByafParser {
      */
     getCharacterCard(manifest, character, scenario) {
         return {
-            spec: "chara_card_v2",
-            spec_version: "2.0",
+            spec: 'chara_card_v2',
+            spec_version: '2.0',
             data: {
-                name: sanitize(character?.name || character?.displayName || ""),
+                name: sanitize(character?.name || character?.displayName || ''),
                 description: this.replaceMacros(character?.persona),
-                personality: "",
+                personality: '',
                 scenario: this.replaceMacros(scenario?.narrative),
-                first_mes: this.replaceMacros(
-                    scenario?.firstMessages?.[0]?.text
-                ),
-                mes_example: this.formatExampleMessages(
-                    scenario?.exampleMessages
-                ),
-                creator_notes: "",
-                system_prompt: this.replaceMacros(
-                    scenario?.formattingInstructions
-                ),
-                post_history_instructions: "",
-                alternate_greetings: this.formatAlternateGreetings(
-                    scenario?.firstMessages
-                ),
+                first_mes: this.replaceMacros(scenario?.firstMessages?.[0]?.text),
+                mes_example: this.formatExampleMessages(scenario?.exampleMessages),
+                creator_notes: '',
+                system_prompt: this.replaceMacros(scenario?.formattingInstructions),
+                post_history_instructions: '',
+                alternate_greetings: this.formatAlternateGreetings(scenario?.firstMessages),
                 character_book: this.convertCharacterBook(character?.loreItems),
                 tags: [],
-                creator: manifest?.author?.name || "",
-                character_version: "",
+                creator: manifest?.author?.name || '',
+                character_version: '',
                 extensions: {},
             },
             // @ts-ignore Non-standard spec extension
@@ -291,17 +261,14 @@ export class ByafParser {
      * @private
      */
     async getManifest() {
-        const manifestBuffer = await extractFileFromZipBuffer(
-            this.#data,
-            "manifest.json"
-        );
+        const manifestBuffer = await extractFileFromZipBuffer(this.#data, 'manifest.json');
         if (!manifestBuffer) {
-            throw new Error("Failed to extract manifest.json from BYAF file");
+            throw new Error('Failed to extract manifest.json from BYAF file');
         }
 
         const manifest = JSON.parse(manifestBuffer.toString());
-        if (!manifest || typeof manifest !== "object") {
-            throw new Error("Invalid BYAF manifest");
+        if (!manifest || typeof manifest !== 'object') {
+            throw new Error('Invalid BYAF manifest');
         }
 
         return manifest;
@@ -313,8 +280,7 @@ export class ByafParser {
      */
     async parse() {
         const manifest = await this.getManifest();
-        const { character, characterPath } =
-            await this.getCharacterFromManifest(manifest);
+        const { character, characterPath } = await this.getCharacterFromManifest(manifest);
         const scenario = await this.getScenarioFromManifest(manifest);
         const image = await this.getCharacterImage(character, characterPath);
         const card = this.getCharacterCard(manifest, character, scenario);

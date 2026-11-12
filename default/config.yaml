@@ -3,17 +3,17 @@
 dataRoot: ./data
 # -- SERVER CONFIGURATION --
 # Listen for incoming connections
-listen: true
+listen: false
 # Listen on a specific address, supports IPv4 and IPv6
 listenAddress:
   ipv4: 0.0.0.0
-  ipv6: "[::]"
+  ipv6: '[::]'
 # Enables IPv6 and/or IPv4 protocols. Need to have at least one enabled!
 # - Use option "auto" to automatically detect support
 # - Use true or false (no qoutes) to enable or disable each protocol
 protocol:
-  ipv4: true
-  ipv6: false
+    ipv4: true
+    ipv6: false
 # Prefers IPv6 for DNS. Enable this on ISPs that don't have issues with IPv6
 dnsPreferIPv6: false
 # -- BROWSER LAUNCH CONFIGURATION --
@@ -24,11 +24,11 @@ browserLaunch:
   # NOT SUPPORTED ON ANDROID DEVICES.
   # - Use "default" to use the system default browser
   # - Use "firefox", "chrome", "edge"
-  browser: "default"
+  browser: 'default'
   # Overrides the hostname that opens in the browser.
   # - Use "auto" to let the server decide
   # - Use options like 'localhost', 'st.example.com'
-  hostname: "auto"
+  hostname: 'auto'
   # Overrides the port for run in the browser.
   # - Use -1 to use the server port.
   # - Specify a port to override the default.
@@ -45,7 +45,7 @@ ssl:
   keyPath: "./certs/privkey.pem"
 # -- SECURITY CONFIGURATION --
 # Toggle whitelist mode
-whitelistMode: false
+whitelistMode: true
 # Whitelist will also verify IP in X-Forwarded-For / X-Real-IP headers
 enableForwardedWhitelist: true
 # Whitelist of allowed IP addresses
@@ -139,7 +139,7 @@ thumbnails:
   # JPG thumbnail quality (0-100)
   quality: 95
   # Maximum thumbnail dimensions per type [width, height]
-  dimensions: { "bg": [160, 90], "avatar": [96, 144], "persona": [96, 144] }
+  dimensions: { 'bg': [160, 90], 'avatar': [96, 144], 'persona': [96, 144] }
 
 # PERFORMANCE-RELATED CONFIGURATION
 performance:
@@ -147,7 +147,7 @@ performance:
   # May have compatibility issues with some extensions.
   lazyLoadCharacters: false
   # The maximum amount of memory that parsed character cards can use. Set to 0 to disable memory caching.
-  memoryCacheCapacity: "100mb"
+  memoryCacheCapacity: '100mb'
   # Enables disk caching for character cards. Improves performances with large card libraries.
   useDiskCache: true
 
@@ -158,7 +158,7 @@ cacheBuster:
   enabled: false
   # Only clear cache for the specified user agent regex pattern
   # Example: 'firefox|safari' (case-insensitive)
-  userAgentPattern: ""
+  userAgentPattern: ''
 
 # Allow secret keys exposure via API
 allowKeysExposure: false
@@ -256,7 +256,7 @@ claude:
 # -- GOOGLE GEMINI API CONFIGURATION --
 gemini:
   # API endpoint version ("v1beta" or "v1alpha")
-  apiVersion: "v1beta"
+  apiVersion: 'v1beta'
 # -- SERVER PLUGIN CONFIGURATION --
 enableServerPlugins: false
 # Attempt to automatically update server plugins on startup
