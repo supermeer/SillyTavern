@@ -1,0 +1,322 @@
+/**
+ * SillyTavern 消息格式化样式表
+ * 从 SillyTavern 源代码提取
+ * 
+ * 使用方式：
+ * 1. 在 HTML 中引入此 CSS 文件
+ * 2. 将格式化后的消息包裹在 .mes_text 容器中
+ * 
+ * 示例：
+ * <div class="mes_text">
+ *     <em>心理活动</em> <q>"对话内容"</q>
+ * </div>
+ */
+
+/* ============================================================================
+   CSS 变量定义
+   ============================================================================ */
+
+:root {
+    /* 主题颜色 */
+    --SmartThemeEmColor: rgb(145, 145, 145);        /* 斜体/心理活动颜色（灰色） */
+    --SmartThemeQuoteColor: rgb(225, 138, 36);      /* 引号/对话颜色（橙色） */
+    --SmartThemeUnderlineColor: rgb(188, 231, 207); /* 下划线颜色（青绿色） */
+    
+    /* 其他颜色 */
+    --black30a: rgba(0, 0, 0, 0.3);
+    
+    /* 推理模式颜色（可选） */
+    --reasoning-saturation: 0.5;
+    --reasoning-em-color: color-mix(in srgb, var(--SmartThemeEmColor) 67%, var(--SmartThemeBlurTintColor) 33%);
+}
+
+/* ============================================================================
+   消息文本基础样式
+   ============================================================================ */
+
+.mes_text {
+    font-family: sans-serif;
+    line-height: 1.6;
+    color: #333;
+}
+
+/* ============================================================================
+   斜体/心理活动样式
+   用法：*文本* 或 _文本_
+   显示效果：灰色斜体
+   ============================================================================ */
+
+.mes_text i,
+.mes_text em {
+    color: var(--SmartThemeEmColor);
+    font-style: italic;
+}
+
+/* 推理模式下的斜体（可选） */
+.mes_reasoning i,
+.mes_reasoning em {
+    color: hsl(from var(--reasoning-em-color) h calc(s * var(--reasoning-saturation)) l);
+}
+
+/* ============================================================================
+   引号/对话样式
+   用法：<q>标签（由 JS 处理引号生成）
+   显示效果：橙色
+   ============================================================================ */
+
+.mes_text q {
+    color: var(--SmartThemeQuoteColor);
+    quotes: none; /* 移除浏览器默认的引号 */
+}
+
+.mes_reasoning q {
+    color: hsl(from var(--SmartThemeQuoteColor) h calc(s * var(--reasoning-saturation)) l);
+}
+
+/* ============================================================================
+   引号中的斜体继承引号颜色
+   规则：引号内的斜体使用引号的颜色而不是斜体颜色
+   ============================================================================ */
+
+.mes_text q i,
+.mes_text q em {
+    color: inherit;
+}
+
+.mes_reasoning q i,
+.mes_reasoning q em {
+    color: hsl(from var(--SmartThemeQuoteColor) h calc(s * var(--reasoning-saturation)) l);
+}
+
+/* ============================================================================
+   下划线样式
+   用法：__文本__
+   显示效果：青绿色下划线
+   ============================================================================ */
+
+.mes_text u {
+    color: var(--SmartThemeUnderlineColor);
+    text-decoration: underline;
+}
+
+.mes_reasoning u {
+    color: hsl(from var(--SmartThemeUnderlineColor) h calc(s * var(--reasoning-saturation)) l);
+}
+
+/* ============================================================================
+   带颜色的字体标签
+   font[color] 标签内的格式化文本使用其父元素的颜色
+   ============================================================================ */
+
+.mes_text font[color] em,
+.mes_text font[color] i,
+.mes_text font[color] u,
+.mes_text font[color] q,
+.mes_reasoning font[color] em,
+.mes_reasoning font[color] i,
+.mes_reasoning font[color] u,
+.mes_reasoning font[color] q {
+    color: inherit;
+}
+
+/* ============================================================================
+   粗体样式
+   用法：**文本**
+   显示效果：粗体
+   ============================================================================ */
+
+.mes_text strong,
+.mes_text h1,
+.mes_text h2 {
+    font-weight: bold;
+}
+
+.mes_text strong em,
+.mes_reasoning strong,
+.mes_reasoning strong em,
+.mes_reasoning h1,
+.mes_reasoning h2 {
+    font-weight: bold;
+}
+
+/* ============================================================================
+   块引用样式
+   用法：> 文本
+   显示效果：左边橙色边框，半透明背景
+   ============================================================================ */
+
+.mes_text blockquote,
+.mes_reasoning blockquote {
+    border-left: 3px solid var(--SmartThemeQuoteColor);
+    padding-left: 10px;
+    background-color: var(--black30a);
+    margin: 0;
+}
+
+/* ============================================================================
+   代码块样式
+   ============================================================================ */
+
+/* 行内代码 */
+.mes_text code {
+    background-color: rgba(0, 0, 0, 0.1);
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.95em;
+}
+
+/* 代码块 */
+.mes_text pre code,
+.mes_reasoning pre code {
+    position: relative;
+    display: block;
+    overflow-x: auto;
+    padding: 1em;
+    background-color: rgba(0, 0, 0, 0.05);
+    border-radius: 5px;
+}
+
+/* ============================================================================
+   图片样式
+   ============================================================================ */
+
+.mes_text img:not(.mes_img),
+.mes_reasoning img:not(.mes_img) {
+    max-width: 100%;
+    max-height: 100vh;
+}
+
+/* ============================================================================
+   角色扮演块（特殊用途）
+   ============================================================================ */
+
+.mes_text rp {
+    display: block;
+}
+
+/* ============================================================================
+   删除线
+   用法：~~文本~~
+   ============================================================================ */
+
+.mes_text del,
+.mes_text s,
+.mes_text strike {
+    text-decoration: line-through;
+}
+
+/* ============================================================================
+   列表样式
+   ============================================================================ */
+
+.mes_text ul,
+.mes_text ol {
+    margin-left: 20px;
+    padding-left: 10px;
+}
+
+.mes_text li {
+    margin: 5px 0;
+}
+
+/* ============================================================================
+   表格样式
+   ============================================================================ */
+
+.mes_text table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 10px 0;
+}
+
+.mes_text th,
+.mes_text td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+}
+
+.mes_text th {
+    background-color: rgba(0, 0, 0, 0.05);
+    font-weight: bold;
+}
+
+/* ============================================================================
+   水平分割线
+   ============================================================================ */
+
+.mes_text hr {
+    border: none;
+    border-top: 2px solid var(--SmartThemeQuoteColor);
+    margin: 15px 0;
+}
+
+/* ============================================================================
+   标题样式
+   ============================================================================ */
+
+.mes_text h1 {
+    font-size: 1.8em;
+    margin: 0.67em 0;
+}
+
+.mes_text h2 {
+    font-size: 1.5em;
+    margin: 0.75em 0;
+}
+
+.mes_text h3 {
+    font-size: 1.3em;
+    margin: 0.83em 0;
+}
+
+.mes_text h4 {
+    font-size: 1.1em;
+    margin: 1em 0;
+}
+
+/* ============================================================================
+   链接样式
+   ============================================================================ */
+
+.mes_text a {
+    color: var(--SmartThemeQuoteColor);
+    text-decoration: underline;
+}
+
+.mes_text a:hover {
+    opacity: 0.8;
+}
+
+/* ============================================================================
+   自定义颜色主题（可选）
+   ============================================================================ */
+
+/* 深色主题 */
+.mes_text.theme-dark {
+    color: #e0e0e0;
+}
+
+.mes_text.theme-dark code {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.mes_text.theme-dark blockquote {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+/* 高对比度主题 */
+.mes_text.theme-high-contrast {
+    --SmartThemeEmColor: rgb(100, 100, 255);
+    --SmartThemeQuoteColor: rgb(255, 165, 0);
+    --SmartThemeUnderlineColor: rgb(0, 255, 200);
+}
+
+/* 柔和主题 */
+.mes_text.theme-soft {
+    --SmartThemeEmColor: rgb(160, 160, 160);
+    --SmartThemeQuoteColor: rgb(200, 150, 80);
+    --SmartThemeUnderlineColor: rgb(150, 200, 180);
+}
+

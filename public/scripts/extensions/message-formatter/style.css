@@ -1,0 +1,133 @@
+/**
+ * Message Formatter — extension styles
+ *
+ * These rules fill the gaps that upstream SillyTavern 1.19 does not ship.
+ * Everything that upstream already handles (the three theme colours, quote
+ * colours, quote-inheritance, bold, blockquotes, code blocks, images) is
+ * intentionally left untouched so this extension stays additive.
+ */
+
+/* ============================================================================
+   删除线
+   用法：~~文本~~
+   ============================================================================ */
+
+.mes_text del,
+.mes_text s,
+.mes_text strike {
+    text-decoration: line-through;
+}
+
+.mes_reasoning del,
+.mes_reasoning s,
+.mes_reasoning strike {
+    text-decoration: line-through;
+}
+
+/* ============================================================================
+   链接
+   ============================================================================ */
+
+.mes_text a {
+    color: var(--SmartThemeQuoteColor);
+    text-decoration: underline;
+}
+
+.mes_text a:hover {
+    opacity: 0.8;
+}
+
+/* ============================================================================
+   标题
+   ============================================================================ */
+
+.mes_text h3 {
+    font-size: 1.3em;
+    margin: 0.83em 0;
+}
+
+.mes_text h4 {
+    font-size: 1.1em;
+    margin: 1em 0;
+}
+
+/* ============================================================================
+   行内代码
+   ============================================================================ */
+
+.mes_text code {
+    background-color: rgba(0, 0, 0, 0.1);
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.95em;
+}
+
+/* ============================================================================
+   水平分割线
+   ============================================================================ */
+
+.mes_text hr {
+    border: none;
+    border-top: 2px solid var(--SmartThemeQuoteColor);
+    margin: 15px 0;
+}
+
+/* ============================================================================
+   列表
+   ============================================================================ */
+
+.mes_text ul,
+.mes_text ol {
+    margin-left: 20px;
+    padding-left: 10px;
+}
+
+.mes_text li {
+    margin: 5px 0;
+}
+
+/* ============================================================================
+   表格
+   ============================================================================ */
+
+.mes_text th,
+.mes_text td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+}
+
+.mes_text th {
+    background-color: rgba(0, 0, 0, 0.05);
+    font-weight: bold;
+}
+
+/* ============================================================================
+   扩展设置面板
+   ============================================================================ */
+
+.message-formatter-settings {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding: 5px 0;
+}
+
+.message-formatter-note {
+    font-size: 0.9em;
+    opacity: 0.75;
+    margin-top: 5px;
+}
+
+/* 扩展被关闭时，隐藏其附加样式 */
+body.message-formatter-disabled .mes_text del,
+body.message-formatter-disabled .mes_text s,
+body.message-formatter-disabled .mes_text strike,
+body.message-formatter-disabled .mes_text a,
+body.message-formatter-disabled .mes_text h3,
+body.message-formatter-disabled .mes_text h4,
+body.message-formatter-disabled .mes_text code,
+body.message-formatter-disabled .mes_text hr {
+    all: revert;
+}

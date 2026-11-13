@@ -1,0 +1,20 @@
+{
+    "display_name": "Message Formatter",
+    "loading_order": 100,
+    "requires": [],
+    "optional": [],
+    "js": "index.js",
+    "css": "style.css",
+    "author": "caoyc",
+    "version": "1.0.0",
+    "homePage": "",
+    "i18n": {
+        "zh-CN": {
+            "Message Formatter": "消息格式化",
+            "Message formatter styles": "消息格式化样式"
+        }
+    },
+    "hooks": {
+        "activate": "init"
+    }
+}
